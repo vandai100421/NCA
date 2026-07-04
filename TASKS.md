@@ -44,14 +44,14 @@ Trạng thái: **xong**
 
 ## S2 — Nhu cầu ảnh (core)
 
-Trạng thái: **chưa bắt đầu**
+Trạng thái: **xong**
 
-- [ ] Module `nhu-cau-anh`: Zod discriminated union (CO_DINH / DOT_XUAT) + refine — (high) — sprint: S2
-- [ ] Service: create, update, transition state (có guard) + tạo NhuCauAnhLichSu — (high) — sprint: S2
-- [ ] Route handlers CRUD + endpoint chuyển trạng thái — (high) — sprint: S2
-- [ ] UI form conditional theo loaiNhuCau (react-hook-form + zodResolver) — (high) — sprint: S2
-- [ ] UI list + filter (trạng thái, nguồn, mục tiêu, loại) + pagination — (high) — sprint: S2
-- [ ] UI detail + timeline lịch sử trạng thái — (med) — sprint: S2
+- [x] Module `nhu-cau-anh`: Zod discriminated union (CO_DINH / DOT_XUAT) + refine — (high) — sprint: S2
+- [x] Service: create, update, transition state (có guard) + tạo NhuCauAnhLichSu — (high) — sprint: S2
+- [x] Route handlers CRUD + endpoint chuyển trạng thái — (high) — sprint: S2
+- [x] UI form conditional theo loaiNhuCau (react-hook-form + zodResolver) — (high) — sprint: S2
+- [x] UI list + filter (trạng thái, nguồn, mục tiêu, loại) + pagination — (high) — sprint: S2
+- [x] UI detail + timeline lịch sử trạng thái — (med) — sprint: S2
 
 ## S3 — Dashboard & polish
 

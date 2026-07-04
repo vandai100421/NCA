@@ -12,6 +12,8 @@ const prisma = new PrismaClient({ adapter });
 async function main() {
   console.log('Seeding...');
 
+  await prisma.nhuCauAnhLichSu.deleteMany();
+  await prisma.nhuCauAnh.deleteMany();
   await prisma.mucTieu.deleteMany();
   await prisma.nguon.deleteMany();
 

@@ -79,7 +79,31 @@ Enum: `LoaiNhuCau` (CO_DINH, DOT_XUAT), `LoaiAnhChup` (7 giá trị), `TrangThai
 | PUT    | `/api/nguon/[id]`    | sửa nguồn                                    |
 | DELETE | `/api/nguon/[id]`    | xóa nguồn (block nếu có nhu cầu liên kết)    |
 
-UI pages: `/tong-quan` (dashboard), `/muc-tieu` (list+form dialog), `/nguon` (list+form dialog). Route `/` redirect → `/tong-quan`.
+UI pages: `/tong-quan`, `/muc-tieu`, `/nguon`, `/nhu-cau-anh` (list+filter+pagination), `/nhu-cau-anh/[id]` (detail+timeline+transition). Route `/` redirect → `/tong-quan`.
+
+Routes bổ sung (S2):
+
+| Method | Path                               | Chức năng                                                                                  |
+| ------ | ---------------------------------- | ------------------------------------------------------------------------------------------ |
+| GET    | `/api/nhu-cau-anh`                 | list (filter: trangThai, nguonId, mucTieuId, loaiNhuCau, loaiAnhChup, search + pagination) |
+| POST   | `/api/nhu-cau-anh`                 | tạo (discriminated union CO_DINH/DOT_XUAT) + audit log đầu tiên                            |
+| GET    | `/api/nhu-cau-anh/[id]`            | chi tiết (include mucTieu, nguon, lichSu)                                                  |
+| PUT    | `/api/nhu-cau-anh/[id]`            | sửa (không cho đổi loaiNhuCau)                                                             |
+| DELETE | `/api/nhu-cau-anh/[id]`            | xóa (chỉ khi CHO_DUYET/TU_CHOI/DA_HUY)                                                     |
+| POST   | `/api/nhu-cau-anh/[id]/transition` | chuyển trạng thái (guard state machine + audit log)                                        |
+
+## State machine (nhu cầu ảnh)
+
+```
+CHO_DUYET → DA_DUYET | TU_CHOI
+DA_DUYET → DA_PHAN_CONG | DA_HUY
+DA_PHAN_CONG → DANG_CHUP | DA_HUY
+DANG_CHUP → DA_CHUP | DA_HUY
+DA_CHUP → DA_TRA_ANH
+TU_CHOI, DA_HUY, DA_TRA_ANH → terminal
+```
+
+Guard ở `src/modules/nhu-cau-anh/lib/state-machine.ts`. Mỗi transition tạo bản ghi `NhuCauAnhLichSu` trong transaction.
 
 ## Nguyên tắc kiến trúc
 

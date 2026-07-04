@@ -1,0 +1,257 @@
+import { prisma } from '@/lib/db';
+import { ConflictError, NotFoundError, StateTransitionError, ValidationError } from '@/lib/errors';
+import type { NhuCauAnh, TrangThaiNhuCau } from '@/infrastructure/prisma/generated/client';
+import { canTransition, isDeletable } from '../lib/state-machine';
+import type {
+  CreateNhuCauInput,
+  NhuCauListQuery,
+  TransitionInput,
+  UpdateNhuCauInput,
+} from '../schema/nhu-cau-anh-schema';
+
+export type { NhuCauListQuery };
+
+export type NhuCauAnhDetail = NhuCauAnh & {
+  mucTieu: { id: number; ten: string };
+  nguon: { id: number; tenNguon: string; nguon: string };
+  lichSu: Array<{
+    id: number;
+    trangThaiCu: TrangThaiNhuCau | null;
+    trangThaiMoi: TrangThaiNhuCau;
+    thoiGian: Date;
+    ghiChu: string | null;
+  }>;
+};
+
+export interface NhuCauListResult {
+  items: NhuCauAnhDetail[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export async function listNhuCau(query: NhuCauListQuery): Promise<NhuCauListResult> {
+  const { page, pageSize, trangThai, nguonId, mucTieuId, loaiNhuCau, loaiAnhChup, search } = query;
+
+  const where = {
+    ...(trangThai && { trangThai }),
+    ...(nguonId && { nguonId }),
+    ...(mucTieuId && { mucTieuId }),
+    ...(loaiNhuCau && { loaiNhuCau }),
+    ...(loaiAnhChup && { loaiAnhChup }),
+    ...(search && {
+      OR: [
+        { diaBan: { contains: search } },
+        { moTa: { contains: search } },
+        { doPhanGiai: { contains: search } },
+        { mucTieu: { ten: { contains: search } } },
+        { nguon: { tenNguon: { contains: search } } },
+      ],
+    }),
+  };
+
+  const [items, total] = await Promise.all([
+    prisma.nhuCauAnh.findMany({
+      where,
+      include: {
+        mucTieu: { select: { id: true, ten: true } },
+        nguon: { select: { id: true, tenNguon: true, nguon: true } },
+        lichSu: {
+          orderBy: { thoiGian: 'desc' },
+          select: {
+            id: true,
+            trangThaiCu: true,
+            trangThaiMoi: true,
+            thoiGian: true,
+            ghiChu: true,
+          },
+        },
+      },
+      orderBy: { id: 'desc' },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+    prisma.nhuCauAnh.count({ where }),
+  ]);
+
+  return { items, total, page, pageSize };
+}
+
+export async function getNhuCauById(id: number): Promise<NhuCauAnhDetail> {
+  const nhuCau = await prisma.nhuCauAnh.findUnique({
+    where: { id },
+    include: {
+      mucTieu: { select: { id: true, ten: true } },
+      nguon: { select: { id: true, tenNguon: true, nguon: true } },
+      lichSu: {
+        orderBy: { thoiGian: 'desc' },
+        select: {
+          id: true,
+          trangThaiCu: true,
+          trangThaiMoi: true,
+          thoiGian: true,
+          ghiChu: true,
+        },
+      },
+    },
+  });
+  if (!nhuCau) {
+    throw new NotFoundError('Nhu cầu ảnh');
+  }
+  return nhuCau;
+}
+
+export async function createNhuCau(input: CreateNhuCauInput): Promise<NhuCauAnhDetail> {
+  const mucTieu = await prisma.mucTieu.findUnique({ where: { id: input.mucTieuId } });
+  if (!mucTieu) {
+    throw new ValidationError('Mục tiêu không tồn tại', 'mucTieuId');
+  }
+  const nguon = await prisma.nguon.findUnique({ where: { id: input.nguonId } });
+  if (!nguon) {
+    throw new ValidationError('Nguồn không tồn tại', 'nguonId');
+  }
+
+  const { moTa, ...rest } = input;
+  const data: Record<string, unknown> = { ...rest };
+  if (moTa && moTa.length > 0) {
+    data.moTa = moTa;
+  } else {
+    data.moTa = null;
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const created = await tx.nhuCauAnh.create({
+      data: data as Parameters<typeof tx.nhuCauAnh.create>[0]['data'],
+      include: {
+        mucTieu: { select: { id: true, ten: true } },
+        nguon: { select: { id: true, tenNguon: true, nguon: true } },
+        lichSu: {
+          orderBy: { thoiGian: 'desc' },
+          select: {
+            id: true,
+            trangThaiCu: true,
+            trangThaiMoi: true,
+            thoiGian: true,
+            ghiChu: true,
+          },
+        },
+      },
+    });
+
+    await tx.nhuCauAnhLichSu.create({
+      data: {
+        nhuCauId: created.id,
+        trangThaiCu: null,
+        trangThaiMoi: 'CHO_DUYET',
+        ghiChu: 'Tạo nhu cầu mới',
+      },
+    });
+
+    return created;
+  });
+}
+
+export async function updateNhuCau(id: number, input: UpdateNhuCauInput): Promise<NhuCauAnhDetail> {
+  const existing = await prisma.nhuCauAnh.findUnique({ where: { id } });
+  if (!existing) {
+    throw new NotFoundError('Nhu cầu ảnh');
+  }
+  if (existing.loaiNhuCau !== input.loaiNhuCau) {
+    throw new ValidationError('Không thể đổi loại nhu cầu sau khi tạo', 'loaiNhuCau');
+  }
+
+  const { moTa, ...rest } = input;
+  const data: Record<string, unknown> = { ...rest };
+  if (moTa && moTa.length > 0) {
+    data.moTa = moTa;
+  } else {
+    data.moTa = null;
+  }
+
+  return prisma.nhuCauAnh.update({
+    where: { id },
+    data: data as Parameters<typeof prisma.nhuCauAnh.update>[0]['data'],
+    include: {
+      mucTieu: { select: { id: true, ten: true } },
+      nguon: { select: { id: true, tenNguon: true, nguon: true } },
+      lichSu: {
+        orderBy: { thoiGian: 'desc' },
+        select: {
+          id: true,
+          trangThaiCu: true,
+          trangThaiMoi: true,
+          thoiGian: true,
+          ghiChu: true,
+        },
+      },
+    },
+  });
+}
+
+export async function transitionState(
+  id: number,
+  input: TransitionInput,
+): Promise<NhuCauAnhDetail> {
+  const existing = await prisma.nhuCauAnh.findUnique({ where: { id } });
+  if (!existing) {
+    throw new NotFoundError('Nhu cầu ảnh');
+  }
+
+  if (existing.trangThai === input.trangThaiMoi) {
+    throw new ValidationError('Trạng thái mới giống trạng thái hiện tại', 'trangThaiMoi');
+  }
+
+  if (!canTransition(existing.trangThai, input.trangThaiMoi)) {
+    throw new StateTransitionError(existing.trangThai, input.trangThaiMoi);
+  }
+
+  const updateData: Record<string, unknown> = { trangThai: input.trangThaiMoi };
+  if (input.trangThaiMoi === 'DA_TRA_ANH') {
+    updateData.thoiGianTra = new Date();
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const updated = await tx.nhuCauAnh.update({
+      where: { id },
+      data: updateData as Parameters<typeof tx.nhuCauAnh.update>[0]['data'],
+      include: {
+        mucTieu: { select: { id: true, ten: true } },
+        nguon: { select: { id: true, tenNguon: true, nguon: true } },
+        lichSu: {
+          orderBy: { thoiGian: 'desc' },
+          select: {
+            id: true,
+            trangThaiCu: true,
+            trangThaiMoi: true,
+            thoiGian: true,
+            ghiChu: true,
+          },
+        },
+      },
+    });
+
+    await tx.nhuCauAnhLichSu.create({
+      data: {
+        nhuCauId: id,
+        trangThaiCu: existing.trangThai,
+        trangThaiMoi: input.trangThaiMoi,
+        ghiChu: input.ghiChu && input.ghiChu.length > 0 ? input.ghiChu : null,
+      },
+    });
+
+    return updated;
+  });
+}
+
+export async function deleteNhuCau(id: number): Promise<void> {
+  const existing = await prisma.nhuCauAnh.findUnique({ where: { id } });
+  if (!existing) {
+    throw new NotFoundError('Nhu cầu ảnh');
+  }
+  if (!isDeletable(existing.trangThai)) {
+    throw new ConflictError(
+      `Không thể xóa nhu cầu ở trạng thái "${existing.trangThai}". Chỉ xóa được khi ở trạng thái CHO_DUYET, TU_CHOI hoặc DA_HUY.`,
+    );
+  }
+  await prisma.nhuCauAnh.delete({ where: { id } });
+}
