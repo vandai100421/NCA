@@ -113,7 +113,9 @@ export function NguonFormDialog({ open, onOpenChange, editing }: NguonFormDialog
               <Label>Loại nguồn</Label>
               <Select
                 value={nguonValue}
-                onValueChange={(v) => setValue('nguon', v as (typeof NGUON_LOAI_OPTIONS)[number])}
+                onValueChange={(v) =>
+                  setValue('nguon', (v ?? 'vệ tinh') as (typeof NGUON_LOAI_OPTIONS)[number])
+                }
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Chọn loại nguồn" />
@@ -155,7 +157,7 @@ export function NguonFormDialog({ open, onOpenChange, editing }: NguonFormDialog
               <Label>Tình trạng</Label>
               <Select
                 value={tinhTrangValue}
-                onValueChange={(v) => setValue('tinhTrang', v as TinhTrangNguon)}
+                onValueChange={(v) => setValue('tinhTrang', (v ?? 'HOAT_DONG') as TinhTrangNguon)}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Chọn tình trạng" />

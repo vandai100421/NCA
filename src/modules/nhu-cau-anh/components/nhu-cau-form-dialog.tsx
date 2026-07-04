@@ -30,7 +30,7 @@ import {
 } from '@/modules/shared/constants';
 import type { LoaiAnhChup, LoaiNhuCau } from '@/infrastructure/prisma/generated/client';
 import { useCreateNhuCau, useUpdateNhuCau } from '../hooks/use-nhu-cau-anh';
-import { createNhuCauSchema } from '../schema/nhu-cau-anh-schema';
+import { nhuCauFormSchema, type NhuCauFormValues } from '../schema/nhu-cau-form-schema';
 import type { NhuCauAnhDetail } from '../api/nhu-cau-anh-service';
 
 interface NhuCauFormDialogProps {
@@ -41,20 +41,7 @@ interface NhuCauFormDialogProps {
   nguonList: Nguon[];
 }
 
-type FormValues = {
-  mucTieuId: number | string;
-  nguonId: number | string;
-  loaiNhuCau: LoaiNhuCau;
-  diaBan: string;
-  loaiAnhChup: LoaiAnhChup;
-  toaDoX: number | string;
-  toaDoY: number | string;
-  thoiGianChup: string;
-  thoiGianMongMuonTu: string;
-  thoiGianMongMuonDen: string;
-  doPhanGiai: string;
-  moTa: string;
-};
+type FormValues = NhuCauFormValues;
 
 const toLocalInput = (d: Date | string | null | undefined): string => {
   if (!d) return '';
@@ -83,7 +70,7 @@ export function NhuCauFormDialog({
     control,
     formState: { errors },
   } = useForm<FormValues>({
-    resolver: zodResolver(createNhuCauSchema) as never,
+    resolver: zodResolver(nhuCauFormSchema),
     defaultValues: {
       mucTieuId: '',
       nguonId: '',
@@ -108,13 +95,13 @@ export function NhuCauFormDialog({
   useEffect(() => {
     if (open) {
       reset({
-        mucTieuId: editing?.mucTieuId ?? '',
-        nguonId: editing?.nguonId ?? '',
+        mucTieuId: editing ? String(editing.mucTieuId) : '',
+        nguonId: editing ? String(editing.nguonId) : '',
         loaiNhuCau: editing?.loaiNhuCau ?? 'CO_DINH',
         diaBan: editing?.diaBan ?? '',
         loaiAnhChup: editing?.loaiAnhChup ?? 'QUANG_HOC',
-        toaDoX: editing?.toaDoX ?? '',
-        toaDoY: editing?.toaDoY ?? '',
+        toaDoX: editing ? String(editing.toaDoX) : '',
+        toaDoY: editing ? String(editing.toaDoY) : '',
         thoiGianChup: toLocalInput(editing?.thoiGianChup),
         thoiGianMongMuonTu: toLocalInput(editing?.thoiGianMongMuonTu),
         thoiGianMongMuonDen: toLocalInput(editing?.thoiGianMongMuonDen),
@@ -141,13 +128,13 @@ export function NhuCauFormDialog({
         ? {
             ...common,
             loaiNhuCau: 'CO_DINH' as const,
-            thoiGianChup: new Date(values.thoiGianChup),
+            thoiGianChup: new Date(values.thoiGianChup ?? ''),
           }
         : {
             ...common,
             loaiNhuCau: 'DOT_XUAT' as const,
-            thoiGianMongMuonTu: new Date(values.thoiGianMongMuonTu),
-            thoiGianMongMuonDen: new Date(values.thoiGianMongMuonDen),
+            thoiGianMongMuonTu: new Date(values.thoiGianMongMuonTu ?? ''),
+            thoiGianMongMuonDen: new Date(values.thoiGianMongMuonDen ?? ''),
           };
 
     try {
@@ -178,7 +165,7 @@ export function NhuCauFormDialog({
               <Label>Mục tiêu</Label>
               <Select
                 value={String(mucTieuIdValue)}
-                onValueChange={(v) => setValue('mucTieuId', Number(v))}
+                onValueChange={(v) => setValue('mucTieuId', v ?? '')}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Chọn mục tiêu" />
@@ -200,7 +187,7 @@ export function NhuCauFormDialog({
               <Label>Nguồn</Label>
               <Select
                 value={String(nguonIdValue)}
-                onValueChange={(v) => setValue('nguonId', Number(v))}
+                onValueChange={(v) => setValue('nguonId', v ?? '')}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Chọn nguồn" />
