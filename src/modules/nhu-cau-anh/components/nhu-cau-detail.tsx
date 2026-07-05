@@ -14,6 +14,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { LoadingState } from '@/components/ui/loading-state';
+import { ErrorState } from '@/components/ui/error-state';
+import { EmptyState } from '@/components/ui/empty-state';
 import { cn } from '@/lib/utils';
 import {
   LOAI_ANH_CHUP_LABELS,
@@ -62,24 +65,25 @@ export function NhuCauDetail() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const id = Number(params.id);
-  const { data, isLoading, error } = useNhuCauDetail(id);
+  const { data, isLoading, error, refetch } = useNhuCauDetail(id);
   const transitionMut = useTransitionNhuCau();
 
   const [nextState, setNextState] = useState<TrangThaiNhuCau | ''>('');
   const [ghiChu, setGhiChu] = useState('');
 
   if (isLoading) {
-    return <p className="text-sm text-muted-foreground">Đang tải...</p>;
+    return <LoadingState />;
   }
   if (error) {
     return (
-      <p className="text-sm text-destructive">
-        {error instanceof Error ? error.message : 'Lỗi tải dữ liệu'}
-      </p>
+      <ErrorState
+        message={error instanceof Error ? error.message : 'Lỗi tải dữ liệu'}
+        onRetry={() => void refetch()}
+      />
     );
   }
   if (!data) {
-    return <p className="text-sm text-muted-foreground">Không tìm thấy nhu cầu.</p>;
+    return <EmptyState title="Không tìm thấy nhu cầu" description="Nhu cầu ảnh không tồn tại." />;
   }
 
   const nextStates = getNextStates(data.trangThai);

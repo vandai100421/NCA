@@ -3,8 +3,9 @@ import { ConflictError, NotFoundError } from '@/lib/errors';
 import type { MucTieu } from '@/infrastructure/prisma/generated/client';
 import type { CreateMucTieuInput, UpdateMucTieuInput } from '../schema/muc-tieu-schema';
 
-export async function listMucTieu(): Promise<MucTieu[]> {
+export async function listMucTieu(search?: string): Promise<MucTieu[]> {
   return prisma.mucTieu.findMany({
+    where: search ? { ten: { contains: search } } : undefined,
     orderBy: { id: 'desc' },
   });
 }

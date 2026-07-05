@@ -26,27 +26,36 @@ src/
 │   ├── layout.tsx                # root layout (lang=vi, Toaster)
 │   ├── page.tsx                  # landing / dashboard
 │   ├── globals.css               # Tailwind v4 + design tokens
-│   ├── (dashboard)/              # khu vực admin (sẽ thêm ở S1+)
+│   ├── (dashboard)/              # khu vực admin
 │   └── api/                      # route handlers (REST)
 ├── modules/                      # modular monolith theo domain
 │   ├── nhu-cau-anh/
 │   │   ├── api/                  # service layer (use-case)
 │   │   ├── components/           # UI component của module
-│   │   ├── lib/                  # business rules
+│   │   ├── hooks/
+│   │   ├── lib/                  # business rules (state-machine)
 │   │   ├── schema/               # Zod schemas (conditional)
 │   │   ├── types.ts
 │   │   └── index.ts              # barrel export
 │   ├── nguon/                    # cấu trúc tương tự
 │   ├── muc-tieu/                 # cấu trúc tương tự
+│   ├── thong-ke/                 # module thống kê (S3)
+│   │   ├── api/                  # aggregate queries
+│   │   ├── components/
+│   │   └── index.ts
 │   └── shared/
 │       ├── enums.ts              # enum tập trung
 │       ├── constants.ts
 │       └── index.ts
 ├── components/
-│   └── ui/                       # shadcn primitives (button, input, ...)
+│   ├── layout/                   # sidebar
+│   └── ui/                       # shadcn primitives + state components (empty/loading/error)
 ├── lib/                          # cross-cutting concerns
 │   ├── db.ts                     # Prisma client singleton
 │   ├── errors.ts                 # typed errors + API envelope
+│   ├── route-handler.ts          # handleRouteError + parseId helpers
+│   ├── api.ts                    # client-side fetch wrapper
+│   ├── query-provider.tsx        # TanStack Query provider
 │   └── utils.ts                  # cn() helper
 └── infrastructure/
     └── prisma/

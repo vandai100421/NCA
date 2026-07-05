@@ -3,8 +3,18 @@ import { ConflictError, NotFoundError } from '@/lib/errors';
 import type { Nguon } from '@/infrastructure/prisma/generated/client';
 import type { CreateNguonInput, UpdateNguonInput } from '../schema/nguon-schema';
 
-export async function listNguon(): Promise<Nguon[]> {
+export async function listNguon(search?: string): Promise<Nguon[]> {
+  const where = search
+    ? {
+        OR: [
+          { tenNguon: { contains: search } },
+          { nguon: { contains: search } },
+          { danhGia: { contains: search } },
+        ],
+      }
+    : undefined;
   return prisma.nguon.findMany({
+    where,
     orderBy: { id: 'desc' },
   });
 }

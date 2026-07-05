@@ -3,11 +3,12 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
-import { Pencil, Plus, Search, Trash2 } from 'lucide-react';
+import { Pencil, Plus, Search, Trash2, Download } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
@@ -24,6 +25,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { EmptyState } from '@/components/ui/empty-state';
+import { LoadingState } from '@/components/ui/loading-state';
+import { ErrorState } from '@/components/ui/error-state';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import type { MucTieu, Nguon } from '@/infrastructure/prisma/generated/client';
@@ -72,7 +76,7 @@ export function NhuCauList() {
     queryFn: () => api.get<Nguon[]>('/api/nguon'),
   });
 
-  const { data, isLoading, error, isFetching } = useNhuCauList({
+  const { data, isLoading, error, isFetching, refetch } = useNhuCauList({
     page,
     pageSize,
     trangThai: trangThai === 'ALL' ? undefined : trangThai,
@@ -117,6 +121,17 @@ export function NhuCauList() {
     setPage(1);
   };
 
+  const handleExport = () => {
+    const params = new URLSearchParams();
+    if (trangThai !== 'ALL') params.set('trangThai', trangThai);
+    if (nguonId !== 'ALL') params.set('nguonId', String(nguonId));
+    if (mucTieuId !== 'ALL') params.set('mucTieuId', String(mucTieuId));
+    if (loaiNhuCau !== 'ALL') params.set('loaiNhuCau', loaiNhuCau);
+    if (search) params.set('search', search);
+    const qs = params.toString();
+    window.location.href = `/api/nhu-cau-anh/export${qs ? `?${qs}` : ''}`;
+  };
+
   const total = data?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
@@ -127,10 +142,16 @@ export function NhuCauList() {
           <h2 className="text-2xl font-bold tracking-tight">Nhu cầu ảnh</h2>
           <p className="text-sm text-muted-foreground">Quản lý nhu cầu đặt chụp ảnh</p>
         </div>
-        <Button onClick={handleAdd}>
-          <Plus className="size-4 mr-2" />
-          Thêm nhu cầu
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={handleExport} disabled={isLoading || !!error}>
+            <Download className="size-4 mr-2" />
+            Export CSV
+          </Button>
+          <Button onClick={handleAdd}>
+            <Plus className="size-4 mr-2" />
+            Thêm nhu cầu
+          </Button>
+        </div>
       </div>
 
       <Card>
@@ -139,101 +160,120 @@ export function NhuCauList() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-3">
-            <Select
-              value={trangThai}
-              onValueChange={(v) => {
-                setTrangThai(v as TrangThaiNhuCau | 'ALL');
-                setPage(1);
-              }}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Trạng thái" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">Tất cả trạng thái</SelectItem>
-                {Object.entries(TRANG_THAI_NHU_CAU_LABELS).map(([value, label]) => (
-                  <SelectItem key={value} value={value}>
-                    {label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select
-              value={String(nguonId)}
-              onValueChange={(v) => {
-                setNguonId(v === 'ALL' ? 'ALL' : Number(v));
-                setPage(1);
-              }}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Nguồn" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">Tất cả nguồn</SelectItem>
-                {(nguonData ?? []).map((n) => (
-                  <SelectItem key={n.id} value={String(n.id)}>
-                    {n.tenNguon}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select
-              value={String(mucTieuId)}
-              onValueChange={(v) => {
-                setMucTieuId(v === 'ALL' ? 'ALL' : Number(v));
-                setPage(1);
-              }}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Mục tiêu" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">Tất cả mục tiêu</SelectItem>
-                {(mucTieuData ?? []).map((m) => (
-                  <SelectItem key={m.id} value={String(m.id)}>
-                    {m.ten}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select
-              value={loaiNhuCau}
-              onValueChange={(v) => {
-                setLoaiNhuCau(v as LoaiNhuCau | 'ALL');
-                setPage(1);
-              }}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Loại nhu cầu" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">Tất cả loại</SelectItem>
-                {Object.entries(LOAI_NHU_CAU_LABELS).map(([value, label]) => (
-                  <SelectItem key={value} value={value}>
-                    {label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <div className="flex gap-2">
-              <Input
-                placeholder="Tìm kiếm..."
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-              />
-              <Button type="button" variant="secondary" size="icon" onClick={handleSearch}>
-                <Search className="size-4" />
-              </Button>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="filter-trangThai">Trạng thái</Label>
+              <Select
+                value={trangThai}
+                onValueChange={(v) => {
+                  setTrangThai(v as TrangThaiNhuCau | 'ALL');
+                  setPage(1);
+                }}
+              >
+                <SelectTrigger id="filter-trangThai">
+                  <SelectValue placeholder="Trạng thái" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">Tất cả trạng thái</SelectItem>
+                  {Object.entries(TRANG_THAI_NHU_CAU_LABELS).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
-            <Button variant="ghost" onClick={resetFilters}>
-              Đặt lại
-            </Button>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="filter-nguonId">Nguồn</Label>
+              <Select
+                value={String(nguonId)}
+                onValueChange={(v) => {
+                  setNguonId(v === 'ALL' ? 'ALL' : Number(v));
+                  setPage(1);
+                }}
+              >
+                <SelectTrigger id="filter-nguonId">
+                  <SelectValue placeholder="Nguồn" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">Tất cả nguồn</SelectItem>
+                  {(nguonData ?? []).map((n) => (
+                    <SelectItem key={n.id} value={String(n.id)}>
+                      {n.tenNguon}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="filter-mucTieuId">Mục tiêu</Label>
+              <Select
+                value={String(mucTieuId)}
+                onValueChange={(v) => {
+                  setMucTieuId(v === 'ALL' ? 'ALL' : Number(v));
+                  setPage(1);
+                }}
+              >
+                <SelectTrigger id="filter-mucTieuId">
+                  <SelectValue placeholder="Mục tiêu" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">Tất cả mục tiêu</SelectItem>
+                  {(mucTieuData ?? []).map((m) => (
+                    <SelectItem key={m.id} value={String(m.id)}>
+                      {m.ten}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="filter-loaiNhuCau">Loại nhu cầu</Label>
+              <Select
+                value={loaiNhuCau}
+                onValueChange={(v) => {
+                  setLoaiNhuCau(v as LoaiNhuCau | 'ALL');
+                  setPage(1);
+                }}
+              >
+                <SelectTrigger id="filter-loaiNhuCau">
+                  <SelectValue placeholder="Loại nhu cầu" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">Tất cả loại</SelectItem>
+                  {Object.entries(LOAI_NHU_CAU_LABELS).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="filter-search">Tìm kiếm</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="filter-search"
+                  placeholder="Tìm kiếm..."
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                />
+                <Button type="button" variant="secondary" size="icon" onClick={handleSearch}>
+                  <Search className="size-4" />
+                </Button>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <Label className="opacity-0">Thao tác</Label>
+              <Button variant="ghost" onClick={resetFilters}>
+                Đặt lại
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -249,13 +289,23 @@ export function NhuCauList() {
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <p className="text-sm text-muted-foreground">Đang tải...</p>
+            <LoadingState />
           ) : error ? (
-            <p className="text-sm text-destructive">
-              {error instanceof Error ? error.message : 'Lỗi tải dữ liệu'}
-            </p>
+            <ErrorState
+              message={error instanceof Error ? error.message : 'Lỗi tải dữ liệu'}
+              onRetry={() => void refetch()}
+            />
           ) : !data || data.items.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Chưa có nhu cầu ảnh nào.</p>
+            <EmptyState
+              title="Chưa có nhu cầu ảnh nào"
+              description="Bấm “Thêm nhu cầu” để tạo bản ghi đầu tiên."
+              action={
+                <Button onClick={handleAdd} variant="outline" size="sm">
+                  <Plus className="size-4 mr-2" />
+                  Thêm nhu cầu
+                </Button>
+              }
+            />
           ) : (
             <Table>
               <TableHeader>

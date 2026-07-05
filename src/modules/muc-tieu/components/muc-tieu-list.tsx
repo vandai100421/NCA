@@ -2,9 +2,11 @@
 
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Pencil, Plus, Trash2 } from 'lucide-react';
+import { Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Table,
@@ -14,6 +16,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { EmptyState } from '@/components/ui/empty-state';
+import { LoadingState } from '@/components/ui/loading-state';
+import { ErrorState } from '@/components/ui/error-state';
 import { api } from '@/lib/api';
 import type { MucTieu } from '@/infrastructure/prisma/generated/client';
 import { useDeleteMucTieu } from '../hooks/use-muc-tieu';
@@ -22,12 +27,21 @@ import { MucTieuFormDialog } from './muc-tieu-form-dialog';
 export function MucTieuList() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<MucTieu | null>(null);
+  const [searchInput, setSearchInput] = useState('');
+  const [search, setSearch] = useState('');
   const deleteMut = useDeleteMucTieu();
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['muc-tieu'],
-    queryFn: () => api.get<MucTieu[]>('/api/muc-tieu'),
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: ['muc-tieu', search] as const,
+    queryFn: () => {
+      const qs = search ? `?search=${encodeURIComponent(search)}` : '';
+      return api.get<MucTieu[]>(`/api/muc-tieu${qs}`);
+    },
   });
+
+  const handleSearch = () => {
+    setSearch(searchInput.trim());
+  };
 
   const handleAdd = () => {
     setEditing(null);
@@ -64,17 +78,62 @@ export function MucTieuList() {
 
       <Card>
         <CardHeader>
+          <CardTitle className="text-sm">Tìm kiếm</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col gap-1.5 max-w-md">
+            <Label htmlFor="filter-search">Tìm kiếm</Label>
+            <div className="flex gap-2">
+              <Input
+                id="filter-search"
+                placeholder="Tìm theo tên mục tiêu..."
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+              />
+              <Button type="button" variant="secondary" size="icon" onClick={handleSearch}>
+                <Search className="size-4" />
+              </Button>
+              {search && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setSearchInput('');
+                    setSearch('');
+                  }}
+                >
+                  Xoá
+                </Button>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle>Danh sách mục tiêu</CardTitle>
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <p className="text-sm text-muted-foreground">Đang tải...</p>
+            <LoadingState />
           ) : error ? (
-            <p className="text-sm text-destructive">
-              {error instanceof Error ? error.message : 'Lỗi tải dữ liệu'}
-            </p>
+            <ErrorState
+              message={error instanceof Error ? error.message : 'Lỗi tải dữ liệu'}
+              onRetry={() => void refetch()}
+            />
           ) : !data || data.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Chưa có mục tiêu nào.</p>
+            <EmptyState
+              title="Chưa có mục tiêu nào"
+              description="Bấm “Thêm mục tiêu” để tạo bản ghi đầu tiên."
+              action={
+                <Button onClick={handleAdd} variant="outline" size="sm">
+                  <Plus className="size-4 mr-2" />
+                  Thêm mục tiêu
+                </Button>
+              }
+            />
           ) : (
             <Table>
               <TableHeader>

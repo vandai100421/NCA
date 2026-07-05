@@ -55,11 +55,11 @@ Trạng thái: **xong**
 
 ## S3 — Dashboard & polish
 
-Trạng thái: **chưa bắt đầu**
+Trạng thái: **xong**
 
-- [ ] Trang tổng quan: đếm nhu cầu theo trạng thái / theo nguồn — (high) — sprint: S3
-- [ ] Search toàn văn — (med) — sprint: S3
-- [ ] Export CSV danh sách nhu cầu — (med) — sprint: S3
-- [ ] Empty / loading / error states nhất quán — (med) — sprint: S3
-- [ ] Vitest cho service layer (schema validation + state transition) — (med) — sprint: S3
-- [ ] Thêm typecheck vào prebuild — (low) — sprint: S3
+- [x] Trang tổng quan: đếm nhu cầu theo trạng thái / theo nguồn — (high) — sprint: S3
+- [x] Search toàn văn — (med) — sprint: S3
+- [x] Export CSV danh sách nhu cầu — (med) — sprint: S3
+- [x] Empty / loading / error states nhất quán — (med) — sprint: S3
+- [x] Vitest cho service layer (schema validation + state transition) — (med) — sprint: S3
+- [x] Thêm typecheck vào prebuild — (low) — sprint: S3
