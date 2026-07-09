@@ -63,19 +63,9 @@ export const updateNhuCauSchema = z
   );
 
 export const transitionSchema = z.object({
-  trangThaiMoi: z.enum(
-    [
-      'CHO_DUYET',
-      'DA_DUYET',
-      'DA_PHAN_CONG',
-      'DANG_CHUP',
-      'DA_CHUP',
-      'DA_TRA_ANH',
-      'TU_CHOI',
-      'DA_HUY',
-    ],
-    { message: 'Trạng thái mới không hợp lệ' },
-  ),
+  trangThaiMoi: z.enum(['DA_DAT', 'FAIL', 'DA_NHAN'], {
+    message: 'Trạng thái mới không hợp lệ',
+  }),
   ghiChu: z.string().trim().max(1000, 'Ghi chú quá 1000 ký tự').optional().or(z.literal('')),
 });
 
@@ -86,18 +76,7 @@ export type TransitionInput = z.infer<typeof transitionSchema>;
 export const nhuCauListQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
   pageSize: z.coerce.number().int().positive().max(100).default(10),
-  trangThai: z
-    .enum([
-      'CHO_DUYET',
-      'DA_DUYET',
-      'DA_PHAN_CONG',
-      'DANG_CHUP',
-      'DA_CHUP',
-      'DA_TRA_ANH',
-      'TU_CHOI',
-      'DA_HUY',
-    ])
-    .optional(),
+  trangThai: z.enum(['DA_DAT', 'FAIL', 'DA_NHAN']).optional(),
   nguonId: z.coerce.number().int().positive().optional(),
   mucTieuId: z.coerce.number().int().positive().optional(),
   loaiNhuCau: z.enum(['CO_DINH', 'DOT_XUAT']).optional(),

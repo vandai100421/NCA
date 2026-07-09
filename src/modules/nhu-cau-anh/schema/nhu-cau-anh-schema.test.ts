@@ -167,14 +167,14 @@ describe('createNhuCauSchema', () => {
 
 describe('transitionSchema', () => {
   it('hợp lệ với trạng thái mới + ghiChu', () => {
-    const parsed = transitionSchema.parse({ trangThaiMoi: 'DA_DUYET', ghiChu: 'Đã phê duyệt' });
-    expect(parsed.trangThaiMoi).toBe('DA_DUYET');
-    expect(parsed.ghiChu).toBe('Đã phê duyệt');
+    const parsed = transitionSchema.parse({ trangThaiMoi: 'DA_NHAN', ghiChu: 'Đã nhận ảnh' });
+    expect(parsed.trangThaiMoi).toBe('DA_NHAN');
+    expect(parsed.ghiChu).toBe('Đã nhận ảnh');
   });
 
   it('hợp lệ không có ghiChu', () => {
-    const parsed = transitionSchema.parse({ trangThaiMoi: 'DA_TRA_ANH' });
-    expect(parsed.trangThaiMoi).toBe('DA_TRA_ANH');
+    const parsed = transitionSchema.parse({ trangThaiMoi: 'FAIL' });
+    expect(parsed.trangThaiMoi).toBe('FAIL');
   });
 
   it('lỗi khi thiếu trangThaiMoi', () => {
@@ -207,8 +207,8 @@ describe('nhuCauListQuerySchema', () => {
   });
 
   it('chấp nhận filter trangThai hợp lệ', () => {
-    const parsed = nhuCauListQuerySchema.parse({ trangThai: 'CHO_DUYET' });
-    expect(parsed.trangThai).toBe('CHO_DUYET');
+    const parsed = nhuCauListQuerySchema.parse({ trangThai: 'DA_DAT' });
+    expect(parsed.trangThai).toBe('DA_DAT');
   });
 
   it('chấp nhận search', () => {

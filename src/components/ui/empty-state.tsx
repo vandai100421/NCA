@@ -1,35 +1,21 @@
-import * as React from 'react';
-import { Inbox } from 'lucide-react';
-import { cn } from '@/lib/utils';
+'use client';
 
-interface EmptyStateProps extends React.ComponentProps<'div'> {
+import { Empty } from 'antd';
+
+interface EmptyStateProps {
   title?: string;
   description?: string;
-  icon?: React.ReactNode;
   action?: React.ReactNode;
 }
 
-export function EmptyState({
-  title = 'Không có dữ liệu',
-  description,
-  icon,
-  action,
-  className,
-  ...props
-}: EmptyStateProps) {
+export function EmptyState({ title, description, action }: EmptyStateProps) {
   return (
-    <div
-      className={cn('flex flex-col items-center justify-center gap-3 py-12 text-center', className)}
-      {...props}
+    <Empty
+      image={Empty.PRESENTED_IMAGE_SIMPLE}
+      description={description ?? title ?? 'Không có dữ liệu'}
+      style={{ margin: '24px 0' }}
     >
-      <div className="flex size-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
-        {icon ?? <Inbox className="size-6" />}
-      </div>
-      <div className="space-y-1">
-        <p className="text-sm font-medium text-foreground">{title}</p>
-        {description && <p className="text-xs text-muted-foreground">{description}</p>}
-      </div>
       {action}
-    </div>
+    </Empty>
   );
 }

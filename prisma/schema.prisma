@@ -23,14 +23,9 @@ enum LoaiAnhChup {
 }
 
 enum TrangThaiNhuCau {
-  CHO_DUYET
-  DA_DUYET
-  DA_PHAN_CONG
-  DANG_CHUP
-  DA_CHUP
-  DA_TRA_ANH
-  TU_CHOI
-  DA_HUY
+  DA_DAT
+  FAIL
+  DA_NHAN
 }
 
 enum TinhTrangNguon {
@@ -80,7 +75,7 @@ model NhuCauAnh {
   thoiGianMongMuonDen DateTime?
   thoiGianTra         DateTime?
   doPhanGiai          String
-  trangThai           TrangThaiNhuCau @default(CHO_DUYET)
+  trangThai           TrangThaiNhuCau @default(DA_DAT)
   moTa                String?
 
   mucTieu MucTieu @relation(fields: [mucTieuId], references: [id])

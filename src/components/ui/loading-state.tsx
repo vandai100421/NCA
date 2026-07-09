@@ -1,19 +1,25 @@
-import * as React from 'react';
-import { Loader2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+'use client';
 
-interface LoadingStateProps extends React.ComponentProps<'div'> {
+import { Spin } from 'antd';
+
+interface LoadingStateProps {
   message?: string;
 }
 
-export function LoadingState({ message = 'Đang tải...', className, ...props }: LoadingStateProps) {
+export function LoadingState({ message = 'Đang tải...' }: LoadingStateProps) {
   return (
     <div
-      className={cn('flex flex-col items-center justify-center gap-3 py-12 text-center', className)}
-      {...props}
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 12,
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: '48px 0',
+      }}
     >
-      <Loader2 className="size-6 animate-spin text-muted-foreground" />
-      <p className="text-sm text-muted-foreground">{message}</p>
+      <Spin size="large" />
+      <span style={{ color: '#8c8c8c' }}>{message}</span>
     </div>
   );
 }

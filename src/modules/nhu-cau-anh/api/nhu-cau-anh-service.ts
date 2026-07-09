@@ -142,7 +142,7 @@ export async function createNhuCau(input: CreateNhuCauInput): Promise<NhuCauAnhD
       data: {
         nhuCauId: created.id,
         trangThaiCu: null,
-        trangThaiMoi: 'CHO_DUYET',
+        trangThaiMoi: 'DA_DAT',
         ghiChu: 'Tạo nhu cầu mới',
       },
     });
@@ -206,7 +206,7 @@ export async function transitionState(
   }
 
   const updateData: Record<string, unknown> = { trangThai: input.trangThaiMoi };
-  if (input.trangThaiMoi === 'DA_TRA_ANH') {
+  if (input.trangThaiMoi === 'DA_NHAN') {
     updateData.thoiGianTra = new Date();
   }
 
@@ -250,7 +250,7 @@ export async function deleteNhuCau(id: number): Promise<void> {
   }
   if (!isDeletable(existing.trangThai)) {
     throw new ConflictError(
-      `Không thể xóa nhu cầu ở trạng thái "${existing.trangThai}". Chỉ xóa được khi ở trạng thái CHO_DUYET, TU_CHOI hoặc DA_HUY.`,
+      `Không thể xóa nhu cầu ở trạng thái "${existing.trangThai}". Chỉ xóa được khi ở trạng thái DA_DAT hoặc FAIL.`,
     );
   }
   await prisma.nhuCauAnh.delete({ where: { id } });

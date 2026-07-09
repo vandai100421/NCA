@@ -3,25 +3,9 @@
 import { useEffect } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { App, Button, Flex, Form, Input, Modal, Select } from 'antd';
 import { api } from '@/lib/api';
+import { searchableProps } from '@/lib/select';
 import type { MucTieu, Nguon } from '@/infrastructure/prisma/generated/client';
 import {
   LOAI_ANH_CHUP_LABELS,
@@ -58,6 +42,7 @@ export function NhuCauFormDialog({
   mucTieuList,
   nguonList,
 }: NhuCauFormDialogProps) {
+  const { notification } = App.useApp();
   const isEdit = Boolean(editing);
   const createMut = useCreateNhuCau();
   const updateMut = useUpdateNhuCau();
@@ -140,220 +125,186 @@ export function NhuCauFormDialog({
     try {
       if (isEdit && editing) {
         await updateMut.mutateAsync({ id: editing.id, input: payload });
-        toast.success('Đã cập nhật nhu cầu ảnh');
+        notification.success({ message: 'Đã cập nhật nhu cầu ảnh' });
       } else {
         await createMut.mutateAsync(payload);
-        toast.success('Đã tạo nhu cầu ảnh mới');
+        notification.success({ message: 'Đã tạo nhu cầu ảnh mới' });
       }
       onOpenChange(false);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Lỗi không xác định');
+      notification.error({
+        message: 'Lỗi không xác định',
+        description: e instanceof Error ? e.message : undefined,
+      });
     }
   });
 
   const pending = createMut.isPending || updateMut.isPending;
 
+  const mucTieuOptions = mucTieuList.map((m) => ({ value: String(m.id), label: m.ten }));
+  const nguonOptions = nguonList.map((n) => ({
+    value: String(n.id),
+    label: `${NGUON_LOAI_LABELS[n.nguon as keyof typeof NGUON_LOAI_LABELS] ?? n.nguon} — ${n.tenNguon}`,
+  }));
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{isEdit ? 'Sửa nhu cầu ảnh' : 'Tạo nhu cầu ảnh mới'}</DialogTitle>
-        </DialogHeader>
-        <form onSubmit={onSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Mục tiêu</Label>
+    <Modal
+      title={isEdit ? 'Sửa nhu cầu ảnh' : 'Tạo nhu cầu ảnh mới'}
+      open={open}
+      onCancel={() => onOpenChange(false)}
+      footer={null}
+      width={720}
+    >
+      <form onSubmit={onSubmit} style={{ marginTop: 16 }}>
+        <Form layout="vertical" component={false}>
+          <Flex gap={16} wrap>
+            <Form.Item
+              label="Mục tiêu"
+              style={{ flex: 1, minWidth: 240 }}
+              validateStatus={errors.mucTieuId ? 'error' : undefined}
+              help={errors.mucTieuId?.message}
+            >
               <Select
-                value={String(mucTieuIdValue)}
-                onValueChange={(v) => setValue('mucTieuId', v ?? '')}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Chọn mục tiêu" />
-                </SelectTrigger>
-                <SelectContent>
-                  {mucTieuList.map((m) => (
-                    <SelectItem key={m.id} value={String(m.id)}>
-                      {m.ten}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {errors.mucTieuId && (
-                <p className="text-sm text-destructive">{errors.mucTieuId.message}</p>
-              )}
-            </div>
+                value={mucTieuIdValue || undefined}
+                onChange={(v) => setValue('mucTieuId', v ?? '')}
+                placeholder="Chọn mục tiêu"
+                options={mucTieuOptions}
+                {...searchableProps(mucTieuOptions)}
+              />
+            </Form.Item>
 
-            <div className="space-y-2">
-              <Label>Nguồn</Label>
+            <Form.Item
+              label="Nguồn"
+              style={{ flex: 1, minWidth: 240 }}
+              validateStatus={errors.nguonId ? 'error' : undefined}
+              help={errors.nguonId?.message}
+            >
               <Select
-                value={String(nguonIdValue)}
-                onValueChange={(v) => setValue('nguonId', v ?? '')}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Chọn nguồn" />
-                </SelectTrigger>
-                <SelectContent>
-                  {nguonList.map((n) => (
-                    <SelectItem key={n.id} value={String(n.id)}>
-                      {NGUON_LOAI_LABELS[n.nguon as keyof typeof NGUON_LOAI_LABELS] ?? n.nguon} —{' '}
-                      {n.tenNguon}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {errors.nguonId && (
-                <p className="text-sm text-destructive">{errors.nguonId.message}</p>
-              )}
-            </div>
-          </div>
+                value={nguonIdValue || undefined}
+                onChange={(v) => setValue('nguonId', v ?? '')}
+                placeholder="Chọn nguồn"
+                options={nguonOptions}
+                {...searchableProps(nguonOptions)}
+              />
+            </Form.Item>
+          </Flex>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Loại nhu cầu</Label>
+          <Flex gap={16} wrap>
+            <Form.Item
+              label="Loại nhu cầu"
+              style={{ flex: 1, minWidth: 240 }}
+              validateStatus={errors.loaiNhuCau ? 'error' : undefined}
+              help={isEdit ? 'Không thể đổi loại nhu cầu sau khi tạo' : errors.loaiNhuCau?.message}
+            >
               <Select
                 value={loaiNhuCauValue}
-                onValueChange={(v) => setValue('loaiNhuCau', v as LoaiNhuCau)}
+                onChange={(v) => setValue('loaiNhuCau', v as LoaiNhuCau)}
                 disabled={isEdit}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Chọn loại nhu cầu" />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(LOAI_NHU_CAU_LABELS).map(([value, label]) => (
-                    <SelectItem key={value} value={value}>
-                      {label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {isEdit && (
-                <p className="text-xs text-muted-foreground">
-                  Không thể đổi loại nhu cầu sau khi tạo
-                </p>
-              )}
-            </div>
+                options={Object.entries(LOAI_NHU_CAU_LABELS).map(([value, label]) => ({
+                  value,
+                  label,
+                }))}
+              />
+            </Form.Item>
 
-            <div className="space-y-2">
-              <Label>Loại ảnh chụp</Label>
+            <Form.Item
+              label="Loại ảnh chụp"
+              style={{ flex: 1, minWidth: 240 }}
+              validateStatus={errors.loaiAnhChup ? 'error' : undefined}
+              help={errors.loaiAnhChup?.message}
+            >
               <Select
                 value={loaiAnhChupValue}
-                onValueChange={(v) => setValue('loaiAnhChup', v as LoaiAnhChup)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Chọn loại ảnh" />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(LOAI_ANH_CHUP_LABELS).map(([value, label]) => (
-                    <SelectItem key={value} value={value}>
-                      {label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {errors.loaiAnhChup && (
-                <p className="text-sm text-destructive">{errors.loaiAnhChup.message}</p>
-              )}
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="diaBan">Địa bàn</Label>
-            <Input id="diaBan" placeholder="VD: Hà Nội, quận Cầu Giấy" {...register('diaBan')} />
-            {errors.diaBan && <p className="text-sm text-destructive">{errors.diaBan.message}</p>}
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="toaDoX">Tọa độ X (kinh độ)</Label>
-              <Input
-                id="toaDoX"
-                type="number"
-                step="any"
-                placeholder="VD: 105.8342"
-                {...register('toaDoX')}
+                onChange={(v) => setValue('loaiAnhChup', v as LoaiAnhChup)}
+                options={Object.entries(LOAI_ANH_CHUP_LABELS).map(([value, label]) => ({
+                  value,
+                  label,
+                }))}
               />
-              {errors.toaDoX && <p className="text-sm text-destructive">{errors.toaDoX.message}</p>}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="toaDoY">Tọa độ Y (vĩ độ)</Label>
-              <Input
-                id="toaDoY"
-                type="number"
-                step="any"
-                placeholder="VD: 21.0278"
-                {...register('toaDoY')}
-              />
-              {errors.toaDoY && <p className="text-sm text-destructive">{errors.toaDoY.message}</p>}
-            </div>
-          </div>
+            </Form.Item>
+          </Flex>
+
+          <Form.Item
+            label="Địa bàn"
+            validateStatus={errors.diaBan ? 'error' : undefined}
+            help={errors.diaBan?.message}
+          >
+            <Input placeholder="VD: Hà Nội, quận Cầu Giấy" {...register('diaBan')} />
+          </Form.Item>
+
+          <Flex gap={16} wrap>
+            <Form.Item
+              label="Tọa độ X (kinh độ)"
+              style={{ flex: 1, minWidth: 240 }}
+              validateStatus={errors.toaDoX ? 'error' : undefined}
+              help={errors.toaDoX?.message}
+            >
+              <Input type="number" step="any" placeholder="VD: 105.8342" {...register('toaDoX')} />
+            </Form.Item>
+            <Form.Item
+              label="Tọa độ Y (vĩ độ)"
+              style={{ flex: 1, minWidth: 240 }}
+              validateStatus={errors.toaDoY ? 'error' : undefined}
+              help={errors.toaDoY?.message}
+            >
+              <Input type="number" step="any" placeholder="VD: 21.0278" {...register('toaDoY')} />
+            </Form.Item>
+          </Flex>
 
           {loaiNhuCauValue === 'CO_DINH' ? (
-            <div className="space-y-2">
-              <Label htmlFor="thoiGianChup">Thời gian chụp</Label>
-              <Input id="thoiGianChup" type="datetime-local" {...register('thoiGianChup')} />
-              {errors.thoiGianChup && (
-                <p className="text-sm text-destructive">{errors.thoiGianChup.message}</p>
-              )}
-            </div>
+            <Form.Item
+              label="Thời gian chụp"
+              validateStatus={errors.thoiGianChup ? 'error' : undefined}
+              help={errors.thoiGianChup?.message}
+            >
+              <Input type="datetime-local" {...register('thoiGianChup')} />
+            </Form.Item>
           ) : (
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="thoiGianMongMuonTu">Mong muốn chụp từ</Label>
-                <Input
-                  id="thoiGianMongMuonTu"
-                  type="datetime-local"
-                  {...register('thoiGianMongMuonTu')}
-                />
-                {errors.thoiGianMongMuonTu && (
-                  <p className="text-sm text-destructive">{errors.thoiGianMongMuonTu.message}</p>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="thoiGianMongMuonDen">Mong muốn chụp đến</Label>
-                <Input
-                  id="thoiGianMongMuonDen"
-                  type="datetime-local"
-                  {...register('thoiGianMongMuonDen')}
-                />
-                {errors.thoiGianMongMuonDen && (
-                  <p className="text-sm text-destructive">{errors.thoiGianMongMuonDen.message}</p>
-                )}
-              </div>
-            </div>
+            <Flex gap={16} wrap>
+              <Form.Item
+                label="Mong muốn chụp từ"
+                style={{ flex: 1, minWidth: 240 }}
+                validateStatus={errors.thoiGianMongMuonTu ? 'error' : undefined}
+                help={errors.thoiGianMongMuonTu?.message}
+              >
+                <Input type="datetime-local" {...register('thoiGianMongMuonTu')} />
+              </Form.Item>
+              <Form.Item
+                label="Mong muốn chụp đến"
+                style={{ flex: 1, minWidth: 240 }}
+                validateStatus={errors.thoiGianMongMuonDen ? 'error' : undefined}
+                help={errors.thoiGianMongMuonDen?.message}
+              >
+                <Input type="datetime-local" {...register('thoiGianMongMuonDen')} />
+              </Form.Item>
+            </Flex>
           )}
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="doPhanGiai">Độ phân giải</Label>
-              <Input id="doPhanGiai" placeholder="VD: 0.5m, 1m" {...register('doPhanGiai')} />
-              {errors.doPhanGiai && (
-                <p className="text-sm text-destructive">{errors.doPhanGiai.message}</p>
-              )}
-            </div>
-          </div>
+          <Form.Item
+            label="Độ phân giải"
+            validateStatus={errors.doPhanGiai ? 'error' : undefined}
+            help={errors.doPhanGiai?.message}
+          >
+            <Input placeholder="VD: 0.5m, 1m" {...register('doPhanGiai')} />
+          </Form.Item>
 
-          <div className="space-y-2">
-            <Label htmlFor="moTa">Mô tả</Label>
-            <textarea
-              id="moTa"
-              className="flex min-h-20 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              placeholder="Mô tả thêm về nhu cầu..."
-              {...register('moTa')}
-            />
-            {errors.moTa && <p className="text-sm text-destructive">{errors.moTa.message}</p>}
-          </div>
+          <Form.Item
+            label="Mô tả"
+            validateStatus={errors.moTa ? 'error' : undefined}
+            help={errors.moTa?.message}
+          >
+            <Input.TextArea rows={3} placeholder="Mô tả thêm về nhu cầu..." {...register('moTa')} />
+          </Form.Item>
 
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Hủy
+          <Flex justify="end" gap="small">
+            <Button onClick={() => onOpenChange(false)}>Hủy</Button>
+            <Button type="primary" htmlType="submit" loading={pending}>
+              Lưu
             </Button>
-            <Button type="submit" disabled={pending}>
-              {pending ? 'Đang lưu...' : 'Lưu'}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+          </Flex>
+        </Form>
+      </form>
+    </Modal>
   );
 }
 

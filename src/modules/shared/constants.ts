@@ -21,14 +21,9 @@ export const LOAI_ANH_CHUP_LABELS: Record<LoaiAnhChup, string> = {
 };
 
 export const TRANG_THAI_NHU_CAU_LABELS: Record<TrangThaiNhuCau, string> = {
-  CHO_DUYET: 'Chờ duyệt',
-  DA_DUYET: 'Đã duyệt',
-  DA_PHAN_CONG: 'Đã phân công',
-  DANG_CHUP: 'Đang chụp',
-  DA_CHUP: 'Đã chụp',
-  DA_TRA_ANH: 'Đã trả ảnh',
-  TU_CHOI: 'Từ chối',
-  DA_HUY: 'Đã hủy',
+  DA_DAT: 'Đã đặt',
+  FAIL: 'Fail',
+  DA_NHAN: 'Đã nhận',
 };
 
 export const TINH_TRANG_NGUON_LABELS: Record<TinhTrangNguon, string> = {
@@ -48,3 +43,15 @@ export const NGUON_LOAI_LABELS: Record<NguonLoai, string> = {
 
 export const PAGE_SIZE = 10;
 export const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
+
+export const TRANG_THAI_TAG_COLOR: Record<TrangThaiNhuCau, string> = {
+  DA_DAT: 'blue',
+  FAIL: 'red',
+  DA_NHAN: 'green',
+};
+
+export const TINH_TRANG_TAG_COLOR: Record<TinhTrangNguon, string> = {
+  HOAT_DONG: 'green',
+  BAO_TRI: 'gold',
+  NGUNG_HOAT_DONG: 'red',
+};

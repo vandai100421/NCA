@@ -3,17 +3,7 @@
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { App, Button, Flex, Form, Input, Modal } from 'antd';
 import { useCreateMucTieu, useUpdateMucTieu } from '../hooks/use-muc-tieu';
 import { createMucTieuSchema, type CreateMucTieuInput } from '../schema/muc-tieu-schema';
 import type { MucTieu } from '@/infrastructure/prisma/generated/client';
@@ -25,6 +15,7 @@ interface MucTieuFormDialogProps {
 }
 
 export function MucTieuFormDialog({ open, onOpenChange, editing }: MucTieuFormDialogProps) {
+  const { notification } = App.useApp();
   const isEdit = Boolean(editing);
   const createMut = useCreateMucTieu();
   const updateMut = useUpdateMucTieu();
@@ -49,41 +40,46 @@ export function MucTieuFormDialog({ open, onOpenChange, editing }: MucTieuFormDi
     try {
       if (isEdit && editing) {
         await updateMut.mutateAsync({ id: editing.id, input: values });
-        toast.success('Đã cập nhật mục tiêu');
+        notification.success({ message: 'Đã cập nhật mục tiêu' });
       } else {
         await createMut.mutateAsync(values);
-        toast.success('Đã tạo mục tiêu mới');
+        notification.success({ message: 'Đã tạo mục tiêu mới' });
       }
       onOpenChange(false);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Lỗi không xác định');
+      notification.error({
+        message: 'Lỗi không xác định',
+        description: e instanceof Error ? e.message : undefined,
+      });
     }
   });
 
   const pending = createMut.isPending || updateMut.isPending;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{isEdit ? 'Sửa mục tiêu' : 'Tạo mục tiêu mới'}</DialogTitle>
-        </DialogHeader>
-        <form onSubmit={onSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="ten">Tên mục tiêu</Label>
-            <Input id="ten" placeholder="VD: Khu công nghiệp Bắc Thăng Long" {...register('ten')} />
-            {errors.ten && <p className="text-sm text-destructive">{errors.ten.message}</p>}
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Hủy
+    <Modal
+      title={isEdit ? 'Sửa mục tiêu' : 'Tạo mục tiêu mới'}
+      open={open}
+      onCancel={() => onOpenChange(false)}
+      footer={null}
+    >
+      <form onSubmit={onSubmit} style={{ marginTop: 16 }}>
+        <Form layout="vertical" component={false}>
+          <Form.Item
+            label="Tên mục tiêu"
+            validateStatus={errors.ten ? 'error' : undefined}
+            help={errors.ten?.message}
+          >
+            <Input placeholder="VD: Khu công nghiệp Bắc Thăng Long" {...register('ten')} />
+          </Form.Item>
+          <Flex justify="end" gap="small">
+            <Button onClick={() => onOpenChange(false)}>Hủy</Button>
+            <Button type="primary" htmlType="submit" loading={pending}>
+              Lưu
             </Button>
-            <Button type="submit" disabled={pending}>
-              {pending ? 'Đang lưu...' : 'Lưu'}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+          </Flex>
+        </Form>
+      </form>
+    </Modal>
   );
 }

@@ -3,65 +3,59 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
-import { Pencil, Plus, Search, Trash2, Download } from 'lucide-react';
-import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import {
+  App,
+  Button,
+  Card,
+  Col,
+  Flex,
+  Form,
+  Input,
+  Row,
   Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import {
   Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+  Tag,
+  Typography,
+} from 'antd';
+import {
+  DeleteOutlined,
+  DownloadOutlined,
+  EditOutlined,
+  EyeOutlined,
+  PlusOutlined,
+} from '@ant-design/icons';
+import type { TableProps } from 'antd';
 import { EmptyState } from '@/components/ui/empty-state';
-import { LoadingState } from '@/components/ui/loading-state';
 import { ErrorState } from '@/components/ui/error-state';
 import { api } from '@/lib/api';
-import { cn } from '@/lib/utils';
+import { confirmDelete } from '@/lib/confirm';
+import { searchableProps } from '@/lib/select';
 import type { MucTieu, Nguon } from '@/infrastructure/prisma/generated/client';
 import {
   LOAI_NHU_CAU_LABELS,
   NGUON_LOAI_LABELS,
   PAGE_SIZE_OPTIONS,
   TRANG_THAI_NHU_CAU_LABELS,
+  TRANG_THAI_TAG_COLOR,
 } from '@/modules/shared/constants';
 import type { LoaiNhuCau, TrangThaiNhuCau } from '@/infrastructure/prisma/generated/client';
 import { useNhuCauList, useDeleteNhuCau } from '../hooks/use-nhu-cau-anh';
 import { NhuCauFormDialog } from './nhu-cau-form-dialog';
 import type { NhuCauAnhDetail } from '../api/nhu-cau-anh-service';
 
-const TRANG_THAI_BADGE: Record<TrangThaiNhuCau, string> = {
-  CHO_DUYET: 'bg-slate-100 text-slate-700',
-  DA_DUYET: 'bg-blue-100 text-blue-700',
-  DA_PHAN_CONG: 'bg-indigo-100 text-indigo-700',
-  DANG_CHUP: 'bg-amber-100 text-amber-700',
-  DA_CHUP: 'bg-cyan-100 text-cyan-700',
-  DA_TRA_ANH: 'bg-emerald-100 text-emerald-700',
-  TU_CHOI: 'bg-rose-100 text-rose-700',
-  DA_HUY: 'bg-zinc-100 text-zinc-500',
-};
+const { Title, Paragraph, Text } = Typography;
+
+const ALL = 'ALL' as const;
 
 export function NhuCauList() {
+  const { notification } = App.useApp();
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
-  const [trangThai, setTrangThai] = useState<TrangThaiNhuCau | 'ALL'>('ALL');
-  const [nguonId, setNguonId] = useState<number | 'ALL'>('ALL');
-  const [mucTieuId, setMucTieuId] = useState<number | 'ALL'>('ALL');
-  const [loaiNhuCau, setLoaiNhuCau] = useState<LoaiNhuCau | 'ALL'>('ALL');
+  const [trangThai, setTrangThai] = useState<TrangThaiNhuCau | typeof ALL>(ALL);
+  const [nguonId, setNguonId] = useState<number | typeof ALL>(ALL);
+  const [mucTieuId, setMucTieuId] = useState<number | typeof ALL>(ALL);
+  const [loaiNhuCau, setLoaiNhuCau] = useState<LoaiNhuCau | typeof ALL>(ALL);
   const [search, setSearch] = useState('');
-  const [searchInput, setSearchInput] = useState('');
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<NhuCauAnhDetail | null>(null);
@@ -79,17 +73,12 @@ export function NhuCauList() {
   const { data, isLoading, error, isFetching, refetch } = useNhuCauList({
     page,
     pageSize,
-    trangThai: trangThai === 'ALL' ? undefined : trangThai,
-    nguonId: nguonId === 'ALL' ? undefined : nguonId,
-    mucTieuId: mucTieuId === 'ALL' ? undefined : mucTieuId,
-    loaiNhuCau: loaiNhuCau === 'ALL' ? undefined : loaiNhuCau,
+    trangThai: trangThai === ALL ? undefined : trangThai,
+    nguonId: nguonId === ALL ? undefined : nguonId,
+    mucTieuId: mucTieuId === ALL ? undefined : mucTieuId,
+    loaiNhuCau: loaiNhuCau === ALL ? undefined : loaiNhuCau,
     search: search || undefined,
   });
-
-  const handleSearch = () => {
-    setSearch(searchInput.trim());
-    setPage(1);
-  };
 
   const handleAdd = () => {
     setEditing(null);
@@ -102,329 +91,277 @@ export function NhuCauList() {
   };
 
   const handleDelete = async (n: NhuCauAnhDetail) => {
-    if (!confirm(`Xóa nhu cầu ảnh #${n.id}?`)) return;
+    const ok = await confirmDelete(`Xóa nhu cầu ảnh #${n.id}?`);
+    if (!ok) return;
     try {
       await deleteMut.mutateAsync(n.id);
-      toast.success('Đã xóa nhu cầu ảnh');
+      notification.success({ message: 'Đã xóa nhu cầu ảnh' });
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Không xóa được');
+      notification.error({
+        message: 'Không xóa được',
+        description: e instanceof Error ? e.message : undefined,
+      });
     }
   };
 
   const resetFilters = () => {
-    setTrangThai('ALL');
-    setNguonId('ALL');
-    setMucTieuId('ALL');
-    setLoaiNhuCau('ALL');
+    setTrangThai(ALL);
+    setNguonId(ALL);
+    setMucTieuId(ALL);
+    setLoaiNhuCau(ALL);
     setSearch('');
-    setSearchInput('');
     setPage(1);
   };
 
   const handleExport = () => {
     const params = new URLSearchParams();
-    if (trangThai !== 'ALL') params.set('trangThai', trangThai);
-    if (nguonId !== 'ALL') params.set('nguonId', String(nguonId));
-    if (mucTieuId !== 'ALL') params.set('mucTieuId', String(mucTieuId));
-    if (loaiNhuCau !== 'ALL') params.set('loaiNhuCau', loaiNhuCau);
+    if (trangThai !== ALL) params.set('trangThai', trangThai);
+    if (nguonId !== ALL) params.set('nguonId', String(nguonId));
+    if (mucTieuId !== ALL) params.set('mucTieuId', String(mucTieuId));
+    if (loaiNhuCau !== ALL) params.set('loaiNhuCau', loaiNhuCau);
     if (search) params.set('search', search);
     const qs = params.toString();
     window.location.href = `/api/nhu-cau-anh/export${qs ? `?${qs}` : ''}`;
   };
 
   const total = data?.total ?? 0;
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+  const nguonFilterOptions = [
+    { value: ALL, label: 'Tất cả nguồn' },
+    ...(nguonData ?? []).map((n) => ({ value: String(n.id), label: n.tenNguon })),
+  ];
+  const mucTieuFilterOptions = [
+    { value: ALL, label: 'Tất cả mục tiêu' },
+    ...(mucTieuData ?? []).map((m) => ({ value: String(m.id), label: m.ten })),
+  ];
+
+  const columns: TableProps<NhuCauAnhDetail>['columns'] = [
+    {
+      title: 'ID',
+      dataIndex: 'id',
+      width: 80,
+      render: (_, n) => (
+        <Link href={`/nhu-cau-anh/${n.id}`}>
+          <Text code>#{n.id}</Text>
+        </Link>
+      ),
+    },
+    { title: 'Mục tiêu', dataIndex: ['mucTieu', 'ten'], ellipsis: true },
+    {
+      title: 'Nguồn',
+      dataIndex: ['nguon', 'tenNguon'],
+      ellipsis: true,
+      render: (_, n) => (
+        <Flex gap={6} align="center" wrap>
+          <Tag>
+            {NGUON_LOAI_LABELS[n.nguon.nguon as keyof typeof NGUON_LOAI_LABELS] ?? n.nguon.nguon}
+          </Tag>
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            {n.nguon.tenNguon}
+          </Text>
+        </Flex>
+      ),
+    },
+    {
+      title: 'Loại',
+      dataIndex: 'loaiNhuCau',
+      width: 100,
+      render: (v: LoaiNhuCau) => <Tag>{LOAI_NHU_CAU_LABELS[v]}</Tag>,
+    },
+    {
+      title: 'Địa bàn',
+      dataIndex: 'diaBan',
+      ellipsis: true,
+    },
+    {
+      title: 'Trạng thái',
+      dataIndex: 'trangThai',
+      width: 130,
+      render: (v: TrangThaiNhuCau) => (
+        <Tag color={TRANG_THAI_TAG_COLOR[v]}>{TRANG_THAI_NHU_CAU_LABELS[v]}</Tag>
+      ),
+    },
+    {
+      title: 'Thao tác',
+      key: 'actions',
+      width: 140,
+      align: 'center',
+      render: (_, n) => (
+        <Flex gap={4} justify="center">
+          <Link href={`/nhu-cau-anh/${n.id}`}>
+            <Button type="text" icon={<EyeOutlined />} />
+          </Link>
+          <Button type="text" icon={<EditOutlined />} onClick={() => handleEdit(n)} />
+          <Button
+            type="text"
+            danger
+            icon={<DeleteOutlined />}
+            onClick={() => void handleDelete(n)}
+            loading={deleteMut.isPending}
+          />
+        </Flex>
+      ),
+    },
+  ];
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      <Flex justify="space-between" align="flex-start">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Nhu cầu ảnh</h2>
-          <p className="text-sm text-muted-foreground">Quản lý nhu cầu đặt chụp ảnh</p>
+          <Title level={3} style={{ margin: 0 }}>
+            Nhu cầu ảnh
+          </Title>
+          <Paragraph type="secondary" style={{ margin: 0 }}>
+            Quản lý nhu cầu đặt chụp ảnh
+          </Paragraph>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={handleExport} disabled={isLoading || !!error}>
-            <Download className="size-4 mr-2" />
+        <Flex gap={8}>
+          <Button
+            icon={<DownloadOutlined />}
+            onClick={handleExport}
+            disabled={isLoading || !!error}
+          >
             Export CSV
           </Button>
-          <Button onClick={handleAdd}>
-            <Plus className="size-4 mr-2" />
+          <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
             Thêm nhu cầu
           </Button>
-        </div>
-      </div>
+        </Flex>
+      </Flex>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm">Bộ lọc</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-3">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="filter-trangThai">Trạng thái</Label>
-              <Select
-                value={trangThai}
-                onValueChange={(v) => {
-                  setTrangThai(v as TrangThaiNhuCau | 'ALL');
-                  setPage(1);
-                }}
-              >
-                <SelectTrigger id="filter-trangThai">
-                  <SelectValue placeholder="Trạng thái" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ALL">Tất cả trạng thái</SelectItem>
-                  {Object.entries(TRANG_THAI_NHU_CAU_LABELS).map(([value, label]) => (
-                    <SelectItem key={value} value={value}>
-                      {label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="filter-nguonId">Nguồn</Label>
-              <Select
-                value={String(nguonId)}
-                onValueChange={(v) => {
-                  setNguonId(v === 'ALL' ? 'ALL' : Number(v));
-                  setPage(1);
-                }}
-              >
-                <SelectTrigger id="filter-nguonId">
-                  <SelectValue placeholder="Nguồn" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ALL">Tất cả nguồn</SelectItem>
-                  {(nguonData ?? []).map((n) => (
-                    <SelectItem key={n.id} value={String(n.id)}>
-                      {n.tenNguon}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="filter-mucTieuId">Mục tiêu</Label>
-              <Select
-                value={String(mucTieuId)}
-                onValueChange={(v) => {
-                  setMucTieuId(v === 'ALL' ? 'ALL' : Number(v));
-                  setPage(1);
-                }}
-              >
-                <SelectTrigger id="filter-mucTieuId">
-                  <SelectValue placeholder="Mục tiêu" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ALL">Tất cả mục tiêu</SelectItem>
-                  {(mucTieuData ?? []).map((m) => (
-                    <SelectItem key={m.id} value={String(m.id)}>
-                      {m.ten}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="filter-loaiNhuCau">Loại nhu cầu</Label>
-              <Select
-                value={loaiNhuCau}
-                onValueChange={(v) => {
-                  setLoaiNhuCau(v as LoaiNhuCau | 'ALL');
-                  setPage(1);
-                }}
-              >
-                <SelectTrigger id="filter-loaiNhuCau">
-                  <SelectValue placeholder="Loại nhu cầu" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ALL">Tất cả loại</SelectItem>
-                  {Object.entries(LOAI_NHU_CAU_LABELS).map(([value, label]) => (
-                    <SelectItem key={value} value={value}>
-                      {label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="filter-search">Tìm kiếm</Label>
-              <div className="flex gap-2">
-                <Input
-                  id="filter-search"
-                  placeholder="Tìm kiếm..."
-                  value={searchInput}
-                  onChange={(e) => setSearchInput(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                />
-                <Button type="button" variant="secondary" size="icon" onClick={handleSearch}>
-                  <Search className="size-4" />
-                </Button>
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <Label className="opacity-0">Thao tác</Label>
-              <Button variant="ghost" onClick={resetFilters}>
-                Đặt lại
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            Danh sách nhu cầu ảnh
-            {isFetching && !isLoading && (
-              <span className="ml-2 text-xs font-normal text-muted-foreground">đang tải...</span>
-            )}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <LoadingState />
-          ) : error ? (
-            <ErrorState
-              message={error instanceof Error ? error.message : 'Lỗi tải dữ liệu'}
-              onRetry={() => void refetch()}
-            />
-          ) : !data || data.items.length === 0 ? (
-            <EmptyState
-              title="Chưa có nhu cầu ảnh nào"
-              description="Bấm “Thêm nhu cầu” để tạo bản ghi đầu tiên."
-              action={
-                <Button onClick={handleAdd} variant="outline" size="sm">
-                  <Plus className="size-4 mr-2" />
-                  Thêm nhu cầu
-                </Button>
-              }
-            />
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-14">ID</TableHead>
-                  <TableHead>Mục tiêu</TableHead>
-                  <TableHead>Nguồn</TableHead>
-                  <TableHead className="w-24">Loại</TableHead>
-                  <TableHead>Địa bàn</TableHead>
-                  <TableHead className="w-28">Trạng thái</TableHead>
-                  <TableHead className="w-32">Thao tác</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {data.items.map((n) => (
-                  <TableRow key={n.id}>
-                    <TableCell className="font-mono text-xs">
-                      <Link href={`/nhu-cau-anh/${n.id}`} className="text-primary hover:underline">
-                        #{n.id}
-                      </Link>
-                    </TableCell>
-                    <TableCell className="font-medium">{n.mucTieu.ten}</TableCell>
-                    <TableCell className="text-xs">
-                      <Badge variant="secondary">
-                        {NGUON_LOAI_LABELS[n.nguon.nguon as keyof typeof NGUON_LOAI_LABELS] ??
-                          n.nguon.nguon}
-                      </Badge>{' '}
-                      {n.nguon.tenNguon}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{LOAI_NHU_CAU_LABELS[n.loaiNhuCau]}</Badge>
-                    </TableCell>
-                    <TableCell className="max-w-48 truncate text-xs" title={n.diaBan}>
-                      {n.diaBan}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className={cn(TRANG_THAI_BADGE[n.trangThai])}>
-                        {TRANG_THAI_NHU_CAU_LABELS[n.trangThai]}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-1">
-                        <Link href={`/nhu-cau-anh/${n.id}`}>
-                          <Button variant="ghost" size="icon" title="Xem chi tiết">
-                            <Search className="size-4" />
-                          </Button>
-                        </Link>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleEdit(n)}
-                          title="Sửa"
-                        >
-                          <Pencil className="size-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDelete(n)}
-                          title="Xóa"
-                          disabled={deleteMut.isPending}
-                        >
-                          <Trash2 className="size-4 text-destructive" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-
-          {total > 0 && (
-            <div className="flex items-center justify-between mt-4">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <span>Hiển thị</span>
+      <Card title="Bộ lọc">
+        <Form layout="vertical">
+          <Row gutter={[12, 12]}>
+            <Col xs={24} sm={12} md={8} lg={6}>
+              <Form.Item label="Trạng thái" style={{ marginBottom: 0 }}>
                 <Select
-                  value={String(pageSize)}
-                  onValueChange={(v) => {
-                    setPageSize(Number(v));
+                  value={trangThai}
+                  onChange={(v) => {
+                    setTrangThai(v);
                     setPage(1);
                   }}
-                >
-                  <SelectTrigger className="w-20 h-8">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PAGE_SIZE_OPTIONS.map((s) => (
-                      <SelectItem key={s} value={String(s)}>
-                        {s}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <span>
-                  / {total} — trang {page}/{totalPages}
-                </span>
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page <= 1}
-                  onClick={() => setPage(page - 1)}
-                >
-                  Trước
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page >= totalPages}
-                  onClick={() => setPage(page + 1)}
-                >
-                  Sau
-                </Button>
-              </div>
-            </div>
-          )}
-        </CardContent>
+                  options={[
+                    { value: ALL, label: 'Tất cả trạng thái' },
+                    ...Object.entries(TRANG_THAI_NHU_CAU_LABELS).map(([value, label]) => ({
+                      value,
+                      label,
+                    })),
+                  ]}
+                />
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={12} md={8} lg={6}>
+              <Form.Item label="Nguồn" style={{ marginBottom: 0 }}>
+                <Select
+                  value={nguonId === ALL ? ALL : String(nguonId)}
+                  onChange={(v) => {
+                    setNguonId(v === ALL ? ALL : Number(v));
+                    setPage(1);
+                  }}
+                  {...searchableProps(nguonFilterOptions)}
+                  options={nguonFilterOptions}
+                />
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={12} md={8} lg={6}>
+              <Form.Item label="Mục tiêu" style={{ marginBottom: 0 }}>
+                <Select
+                  value={mucTieuId === ALL ? ALL : String(mucTieuId)}
+                  onChange={(v) => {
+                    setMucTieuId(v === ALL ? ALL : Number(v));
+                    setPage(1);
+                  }}
+                  {...searchableProps(mucTieuFilterOptions)}
+                  options={mucTieuFilterOptions}
+                />
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={12} md={8} lg={6}>
+              <Form.Item label="Loại nhu cầu" style={{ marginBottom: 0 }}>
+                <Select
+                  value={loaiNhuCau}
+                  onChange={(v) => {
+                    setLoaiNhuCau(v);
+                    setPage(1);
+                  }}
+                  options={[
+                    { value: ALL, label: 'Tất cả loại' },
+                    ...Object.entries(LOAI_NHU_CAU_LABELS).map(([value, label]) => ({
+                      value,
+                      label,
+                    })),
+                  ]}
+                />
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={12} md={8} lg={6}>
+              <Form.Item label="Tìm kiếm" style={{ marginBottom: 0 }}>
+                <Input.Search
+                  placeholder="Tìm kiếm..."
+                  allowClear
+                  onSearch={(v) => {
+                    setSearch(v.trim());
+                    setPage(1);
+                  }}
+                />
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={12} md={8} lg={6}>
+              <Form.Item label=" " style={{ marginBottom: 0 }}>
+                <Button onClick={resetFilters}>Đặt lại</Button>
+              </Form.Item>
+            </Col>
+          </Row>
+        </Form>
+      </Card>
+
+      <Card
+        title={
+          <Flex align="center" gap={8}>
+            <span>Danh sách nhu cầu ảnh</span>
+            {isFetching && !isLoading ? (
+              <Text type="secondary" style={{ fontSize: 12, fontWeight: 'normal' }}>
+                đang tải...
+              </Text>
+            ) : null}
+          </Flex>
+        }
+      >
+        {error ? (
+          <ErrorState
+            message={error instanceof Error ? error.message : 'Lỗi tải dữ liệu'}
+            onRetry={() => void refetch()}
+          />
+        ) : !isLoading && (!data || data.items.length === 0) ? (
+          <EmptyState
+            title="Chưa có nhu cầu ảnh nào"
+            description="Bấm “Thêm nhu cầu” để tạo bản ghi đầu tiên."
+            action={
+              <Button onClick={handleAdd} icon={<PlusOutlined />}>
+                Thêm nhu cầu
+              </Button>
+            }
+          />
+        ) : (
+          <Table<NhuCauAnhDetail>
+            rowKey="id"
+            columns={columns}
+            dataSource={data?.items ?? []}
+            loading={isLoading}
+            pagination={{
+              current: page,
+              pageSize,
+              total,
+              showSizeChanger: true,
+              pageSizeOptions: PAGE_SIZE_OPTIONS.map(String),
+              onChange: (p, ps) => {
+                setPage(p);
+                setPageSize(ps);
+              },
+              showTotal: (t) => `Tổng ${t} bản ghi`,
+            }}
+          />
+        )}
       </Card>
 
       <NhuCauFormDialog

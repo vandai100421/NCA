@@ -113,7 +113,7 @@ function tinhSoNgayTre(thoiGianTra: Date, han: Date): number {
 
 export async function getThongKeThoiGian(tuNgay?: Date, denNgay?: Date): Promise<ThongKeThoiGian> {
   const where = {
-    trangThai: 'DA_TRA_ANH' as const,
+    trangThai: 'DA_NHAN' as const,
     thoiGianTra: { not: null },
     ...(tuNgay && { thoiGianTra: { gte: tuNgay } }),
     ...(denNgay && { thoiGianTra: { lte: denNgay } }),

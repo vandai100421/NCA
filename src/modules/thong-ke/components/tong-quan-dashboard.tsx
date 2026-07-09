@@ -2,44 +2,30 @@
 
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
-import { Activity, Image as ImageIcon, Target, Layers } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { LoadingState } from '@/components/ui/loading-state';
-import { ErrorState } from '@/components/ui/error-state';
+import {
+  AppstoreOutlined,
+  DashboardOutlined,
+  PictureOutlined,
+  AimOutlined,
+} from '@ant-design/icons';
+import { Card, Col, Empty, Flex, Progress, Row, Statistic, Tag, Typography } from 'antd';
 import { EmptyState } from '@/components/ui/empty-state';
+import { ErrorState } from '@/components/ui/error-state';
+import { LoadingState } from '@/components/ui/loading-state';
 import { api } from '@/lib/api';
-import { cn } from '@/lib/utils';
 import {
   LOAI_NHU_CAU_LABELS,
   NGUON_LOAI_LABELS,
   TRANG_THAI_NHU_CAU_LABELS,
+  TRANG_THAI_TAG_COLOR,
 } from '@/modules/shared/constants';
 import type { TrangThaiNhuCau } from '@/infrastructure/prisma/generated/client';
 import type { TongQuanStats } from '../api/thong-ke-service';
 import { ThongKeThoiGianPanel } from './thong-ke-thoi-gian-panel';
 
-const TRANG_THAI_BADGE: Record<TrangThaiNhuCau, string> = {
-  CHO_DUYET: 'bg-slate-100 text-slate-700',
-  DA_DUYET: 'bg-blue-100 text-blue-700',
-  DA_PHAN_CONG: 'bg-indigo-100 text-indigo-700',
-  DANG_CHUP: 'bg-amber-100 text-amber-700',
-  DA_CHUP: 'bg-cyan-100 text-cyan-700',
-  DA_TRA_ANH: 'bg-emerald-100 text-emerald-700',
-  TU_CHOI: 'bg-rose-100 text-rose-700',
-  DA_HUY: 'bg-zinc-100 text-zinc-500',
-};
+const { Title, Paragraph, Text } = Typography;
 
-const ALL_TRANG_THAI: TrangThaiNhuCau[] = [
-  'CHO_DUYET',
-  'DA_DUYET',
-  'DA_PHAN_CONG',
-  'DANG_CHUP',
-  'DA_CHUP',
-  'DA_TRA_ANH',
-  'TU_CHOI',
-  'DA_HUY',
-];
+const ALL_TRANG_THAI: TrangThaiNhuCau[] = ['DA_DAT', 'FAIL', 'DA_NHAN'];
 
 function StatCard({
   title,
@@ -54,18 +40,17 @@ function StatCard({
 }) {
   return (
     <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center justify-between text-sm font-medium text-muted-foreground">
-          {title}
-          <span className="text-muted-foreground">{icon}</span>
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <p className="text-3xl font-bold">{value}</p>
-        <Link href={href} className="text-xs text-primary hover:underline mt-2 inline-block">
-          Xem danh sách →
-        </Link>
-      </CardContent>
+      <Flex justify="space-between" align="flex-start">
+        <div>
+          <Statistic title={title} value={value} />
+          <Link href={href}>
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              Xem danh sách →
+            </Text>
+          </Link>
+        </div>
+        <Text type="secondary">{icon}</Text>
+      </Flex>
     </Card>
   );
 }
@@ -96,129 +81,129 @@ export function TongQuanDashboard() {
   const countByLoai = new Map(data.theoLoaiNhuCau.map((l) => [l.loaiNhuCau, l.count]));
 
   return (
-    <div className="space-y-6">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       <div>
-        <h2 className="text-2xl font-bold tracking-tight">Tổng quan</h2>
-        <p className="text-sm text-muted-foreground">Hệ thống quản lý nhu cầu đặt ảnh nội bộ</p>
+        <Title level={3} style={{ margin: 0 }}>
+          Tổng quan
+        </Title>
+        <Paragraph type="secondary" style={{ margin: 0 }}>
+          Hệ thống quản lý nhu cầu đặt ảnh nội bộ
+        </Paragraph>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <StatCard
-          title="Nhu cầu ảnh"
-          value={data.totalNhuCau}
-          icon={<ImageIcon className="size-5" />}
-          href="/nhu-cau-anh"
-        />
-        <StatCard
-          title="Nguồn"
-          value={data.totalNguon}
-          icon={<Layers className="size-5" />}
-          href="/nguon"
-        />
-        <StatCard
-          title="Mục tiêu"
-          value={data.totalMucTieu}
-          icon={<Target className="size-5" />}
-          href="/muc-tieu"
-        />
-      </div>
+      <Row gutter={[16, 16]}>
+        <Col xs={24} sm={8}>
+          <StatCard
+            title="Nhu cầu ảnh"
+            value={data.totalNhuCau}
+            icon={<PictureOutlined style={{ fontSize: 20 }} />}
+            href="/nhu-cau-anh"
+          />
+        </Col>
+        <Col xs={24} sm={8}>
+          <StatCard
+            title="Nguồn"
+            value={data.totalNguon}
+            icon={<AppstoreOutlined style={{ fontSize: 20 }} />}
+            href="/nguon"
+          />
+        </Col>
+        <Col xs={24} sm={8}>
+          <StatCard
+            title="Mục tiêu"
+            value={data.totalMucTieu}
+            icon={<AimOutlined style={{ fontSize: 20 }} />}
+            href="/muc-tieu"
+          />
+        </Col>
+      </Row>
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Activity className="size-4" />
-              Nhu cầu theo trạng thái
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
+      <Row gutter={[16, 16]}>
+        <Col xs={24} lg={16}>
+          <Card
+            title={
+              <Flex align="center" gap={8}>
+                <DashboardOutlined />
+                <span>Nhu cầu theo trạng thái</span>
+              </Flex>
+            }
+          >
             {data.totalNhuCau === 0 ? (
               <EmptyState title="Chưa có nhu cầu ảnh nào" />
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <Row gutter={[12, 12]}>
                 {ALL_TRANG_THAI.map((state) => {
                   const count = countByTrangThai.get(state) ?? 0;
                   return (
-                    <div key={state} className="flex flex-col gap-2 rounded-lg border p-3">
-                      <Badge variant="outline" className={cn('w-fit', TRANG_THAI_BADGE[state])}>
-                        {TRANG_THAI_NHU_CAU_LABELS[state]}
-                      </Badge>
-                      <span className="text-2xl font-bold">{count}</span>
+                    <Col key={state} xs={12} sm={6}>
+                      <Card size="small">
+                        <Flex vertical gap={4}>
+                          <Tag color={TRANG_THAI_TAG_COLOR[state]}>
+                            {TRANG_THAI_NHU_CAU_LABELS[state]}
+                          </Tag>
+                          <Statistic value={count} />
+                        </Flex>
+                      </Card>
+                    </Col>
+                  );
+                })}
+              </Row>
+            )}
+          </Card>
+        </Col>
+
+        <Col xs={24} lg={8}>
+          <Card title="Phân loại nhu cầu">
+            {data.totalNhuCau === 0 ? (
+              <Empty description="Chưa có dữ liệu." />
+            ) : (
+              <Flex vertical gap={16}>
+                {Object.entries(LOAI_NHU_CAU_LABELS).map(([value, label]) => {
+                  const count = countByLoai.get(value as 'CO_DINH' | 'DOT_XUAT') ?? 0;
+                  const pct =
+                    data.totalNhuCau > 0 ? Math.round((count / data.totalNhuCau) * 100) : 0;
+                  return (
+                    <div key={value}>
+                      <Flex justify="space-between" style={{ marginBottom: 4 }}>
+                        <Text>{label}</Text>
+                        <Text type="secondary">
+                          {count} ({pct}%)
+                        </Text>
+                      </Flex>
+                      <Progress percent={pct} showInfo={false} size="small" />
                     </div>
                   );
                 })}
-              </div>
+              </Flex>
             )}
-          </CardContent>
-        </Card>
+          </Card>
+        </Col>
+      </Row>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Phân loại nhu cầu</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {data.totalNhuCau === 0 ? (
-              <p className="text-sm text-muted-foreground">Chưa có dữ liệu.</p>
-            ) : (
-              Object.entries(LOAI_NHU_CAU_LABELS).map(([value, label]) => {
-                const count = countByLoai.get(value as 'CO_DINH' | 'DOT_XUAT') ?? 0;
-                const pct = data.totalNhuCau > 0 ? Math.round((count / data.totalNhuCau) * 100) : 0;
-                return (
-                  <div key={value} className="space-y-1">
-                    <div className="flex items-center justify-between text-sm">
-                      <span>{label}</span>
-                      <span className="text-muted-foreground">
-                        {count} ({pct}%)
-                      </span>
-                    </div>
-                    <div className="h-2 w-full rounded-full bg-muted">
-                      <div
-                        className="h-2 rounded-full bg-primary transition-all"
-                        style={{ width: `${pct}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Nhu cầu theo nguồn (Top 5)</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {data.theoNguon.length === 0 ? (
-            <EmptyState title="Chưa có dữ liệu theo nguồn" />
-          ) : (
-            <div className="space-y-3">
-              {data.theoNguon.map((n) => {
-                const pct = maxNguonCount > 0 ? Math.round((n.count / maxNguonCount) * 100) : 0;
-                return (
-                  <div key={n.nguonId} className="space-y-1">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="flex items-center gap-2">
-                        <Badge variant="secondary">
-                          {NGUON_LOAI_LABELS[n.nguon as keyof typeof NGUON_LOAI_LABELS] ?? n.nguon}
-                        </Badge>
-                        {n.tenNguon}
-                      </span>
-                      <span className="font-medium">{n.count}</span>
-                    </div>
-                    <div className="h-2 w-full rounded-full bg-muted">
-                      <div
-                        className="h-2 rounded-full bg-primary transition-all"
-                        style={{ width: `${pct}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </CardContent>
+      <Card title="Nhu cầu theo nguồn (Top 5)">
+        {data.theoNguon.length === 0 ? (
+          <EmptyState title="Chưa có dữ liệu theo nguồn" />
+        ) : (
+          <Flex vertical gap={16}>
+            {data.theoNguon.map((n) => {
+              const pct = maxNguonCount > 0 ? Math.round((n.count / maxNguonCount) * 100) : 0;
+              return (
+                <div key={n.nguonId}>
+                  <Flex justify="space-between" style={{ marginBottom: 4 }}>
+                    <Flex gap={8} align="center">
+                      <Tag>
+                        {NGUON_LOAI_LABELS[n.nguon as keyof typeof NGUON_LOAI_LABELS] ?? n.nguon}
+                      </Tag>
+                      <Text>{n.tenNguon}</Text>
+                    </Flex>
+                    <Text strong>{n.count}</Text>
+                  </Flex>
+                  <Progress percent={pct} showInfo={false} size="small" />
+                </div>
+              );
+            })}
+          </Flex>
+        )}
       </Card>
 
       <ThongKeThoiGianPanel />

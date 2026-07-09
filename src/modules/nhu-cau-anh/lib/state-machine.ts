@@ -1,14 +1,9 @@
 import type { TrangThaiNhuCau } from '@/infrastructure/prisma/generated/client';
 
 const TRANSITIONS: Record<TrangThaiNhuCau, TrangThaiNhuCau[]> = {
-  CHO_DUYET: ['DA_DUYET', 'TU_CHOI'],
-  DA_DUYET: ['DA_PHAN_CONG', 'DA_HUY'],
-  DA_PHAN_CONG: ['DANG_CHUP', 'DA_HUY'],
-  DANG_CHUP: ['DA_CHUP', 'DA_HUY'],
-  DA_CHUP: ['DA_TRA_ANH'],
-  DA_TRA_ANH: [],
-  TU_CHOI: [],
-  DA_HUY: [],
+  DA_DAT: ['DA_NHAN', 'FAIL'],
+  DA_NHAN: [],
+  FAIL: [],
 };
 
 export function canTransition(from: TrangThaiNhuCau, to: TrangThaiNhuCau): boolean {
@@ -25,5 +20,5 @@ export function isTerminal(state: TrangThaiNhuCau): boolean {
 }
 
 export function isDeletable(state: TrangThaiNhuCau): boolean {
-  return state === 'CHO_DUYET' || state === 'TU_CHOI' || state === 'DA_HUY';
+  return state === 'DA_DAT' || state === 'FAIL';
 }

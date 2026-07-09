@@ -1,44 +1,36 @@
 'use client';
 
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { cn } from '@/lib/utils';
+import { Layout, Menu } from 'antd';
+import { usePathname, useRouter } from 'next/navigation';
+
+const { Sider } = Layout;
 
 const NAV_ITEMS = [
-  { href: '/', label: 'Tổng quan' },
-  { href: '/nhu-cau-anh', label: 'Nhu cầu ảnh' },
-  { href: '/nguon', label: 'Nguồn' },
-  { href: '/muc-tieu', label: 'Mục tiêu' },
+  { key: '/', label: 'Tổng quan' },
+  { key: '/nhu-cau-anh', label: 'Nhu cầu ảnh' },
+  { key: '/nguon', label: 'Nguồn' },
+  { key: '/muc-tieu', label: 'Mục tiêu' },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
+
+  const selectedKey = pathname === '/' ? '/' : `/${pathname.split('/')[1]}`;
 
   return (
-    <aside className="w-60 shrink-0 border-r bg-muted/30">
-      <div className="px-4 py-5 border-b">
-        <h1 className="text-lg font-semibold">NCA</h1>
-        <p className="text-xs text-muted-foreground">Quản lý nhu cầu đặt ảnh</p>
+    <Sider theme="light" width={240} breakpoint="lg" collapsedWidth={0}>
+      <div style={{ padding: '20px 16px', borderBottom: '1px solid #f0f0f0' }}>
+        <h1 style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>NCA</h1>
+        <p style={{ margin: 0, fontSize: 12, color: '#8c8c8c' }}>Quản lý nhu cầu đặt ảnh</p>
       </div>
-      <nav className="p-2 flex flex-col gap-1">
-        {NAV_ITEMS.map((item) => {
-          const active = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href);
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                'px-3 py-2 rounded-md text-sm transition-colors',
-                active
-                  ? 'bg-primary text-primary-foreground font-medium'
-                  : 'hover:bg-muted text-foreground/80',
-              )}
-            >
-              {item.label}
-            </Link>
-          );
-        })}
-      </nav>
-    </aside>
+      <Menu
+        mode="inline"
+        selectedKeys={[selectedKey]}
+        items={NAV_ITEMS}
+        onClick={({ key }) => router.push(key)}
+        style={{ borderInlineEnd: 'none' }}
+      />
+    </Sider>
   );
 }

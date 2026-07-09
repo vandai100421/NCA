@@ -3,29 +3,12 @@
 import { useEffect } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { App, Button, Flex, Form, Input, Modal, Select } from 'antd';
 import { useCreateNguon, useUpdateNguon } from '../hooks/use-nguon';
 import { createNguonSchema, type CreateNguonInput } from '../schema/nguon-schema';
 import {
-  NGUON_LOAI_OPTIONS,
   NGUON_LOAI_LABELS,
+  NGUON_LOAI_OPTIONS,
   TINH_TRANG_NGUON_LABELS,
 } from '@/modules/shared/constants';
 import type { Nguon } from '@/infrastructure/prisma/generated/client';
@@ -40,6 +23,7 @@ interface NguonFormDialogProps {
 type FormValues = Omit<CreateNguonInput, 'danhGia'> & { danhGia: string };
 
 export function NguonFormDialog({ open, onOpenChange, editing }: NguonFormDialogProps) {
+  const { notification } = App.useApp();
   const isEdit = Boolean(editing);
   const createMut = useCreateNguon();
   const updateMut = useUpdateNguon();
@@ -88,115 +72,106 @@ export function NguonFormDialog({ open, onOpenChange, editing }: NguonFormDialog
     try {
       if (isEdit && editing) {
         await updateMut.mutateAsync({ id: editing.id, input });
-        toast.success('Đã cập nhật nguồn');
+        notification.success({ message: 'Đã cập nhật nguồn' });
       } else {
         await createMut.mutateAsync(input);
-        toast.success('Đã tạo nguồn mới');
+        notification.success({ message: 'Đã tạo nguồn mới' });
       }
       onOpenChange(false);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Lỗi không xác định');
+      notification.error({
+        message: 'Lỗi không xác định',
+        description: e instanceof Error ? e.message : undefined,
+      });
     }
   });
 
   const pending = createMut.isPending || updateMut.isPending;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>{isEdit ? 'Sửa nguồn' : 'Tạo nguồn mới'}</DialogTitle>
-        </DialogHeader>
-        <form onSubmit={onSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Loại nguồn</Label>
+    <Modal
+      title={isEdit ? 'Sửa nguồn' : 'Tạo nguồn mới'}
+      open={open}
+      onCancel={() => onOpenChange(false)}
+      footer={null}
+      width={640}
+    >
+      <form onSubmit={onSubmit} style={{ marginTop: 16 }}>
+        <Form layout="vertical" component={false}>
+          <Flex gap={16} wrap>
+            <Form.Item
+              label="Loại nguồn"
+              style={{ flex: 1, minWidth: 240 }}
+              validateStatus={errors.nguon ? 'error' : undefined}
+              help={errors.nguon?.message}
+            >
               <Select
                 value={nguonValue}
-                onValueChange={(v) =>
-                  setValue('nguon', (v ?? 'vệ tinh') as (typeof NGUON_LOAI_OPTIONS)[number])
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Chọn loại nguồn" />
-                </SelectTrigger>
-                <SelectContent>
-                  {NGUON_LOAI_OPTIONS.map((opt) => (
-                    <SelectItem key={opt} value={opt}>
-                      {NGUON_LOAI_LABELS[opt]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {errors.nguon && <p className="text-sm text-destructive">{errors.nguon.message}</p>}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="tenNguon">Tên nguồn</Label>
-              <Input id="tenNguon" placeholder="VD: VT-Optical-Sat1" {...register('tenNguon')} />
-              {errors.tenNguon && (
-                <p className="text-sm text-destructive">{errors.tenNguon.message}</p>
-              )}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="thoiGianSuDung">Thời gian sử dụng</Label>
-              <Input
-                id="thoiGianSuDung"
-                placeholder="VD: 01/01/2025 - 31/12/2025"
-                {...register('thoiGianSuDung')}
+                onChange={(v) => setValue('nguon', v)}
+                options={NGUON_LOAI_OPTIONS.map((opt) => ({
+                  value: opt,
+                  label: NGUON_LOAI_LABELS[opt],
+                }))}
               />
-              {errors.thoiGianSuDung && (
-                <p className="text-sm text-destructive">{errors.thoiGianSuDung.message}</p>
-              )}
-            </div>
+            </Form.Item>
 
-            <div className="space-y-2">
-              <Label>Tình trạng</Label>
+            <Form.Item
+              label="Tên nguồn"
+              style={{ flex: 1, minWidth: 240 }}
+              validateStatus={errors.tenNguon ? 'error' : undefined}
+              help={errors.tenNguon?.message}
+            >
+              <Input placeholder="VD: VT-Optical-Sat1" {...register('tenNguon')} />
+            </Form.Item>
+          </Flex>
+
+          <Flex gap={16} wrap>
+            <Form.Item
+              label="Thời gian sử dụng"
+              style={{ flex: 1, minWidth: 240 }}
+              validateStatus={errors.thoiGianSuDung ? 'error' : undefined}
+              help={errors.thoiGianSuDung?.message}
+            >
+              <Input placeholder="VD: 01/01/2025 - 31/12/2025" {...register('thoiGianSuDung')} />
+            </Form.Item>
+
+            <Form.Item
+              label="Tình trạng"
+              style={{ flex: 1, minWidth: 240 }}
+              validateStatus={errors.tinhTrang ? 'error' : undefined}
+              help={errors.tinhTrang?.message}
+            >
               <Select
                 value={tinhTrangValue}
-                onValueChange={(v) => setValue('tinhTrang', (v ?? 'HOAT_DONG') as TinhTrangNguon)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Chọn tình trạng" />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(TINH_TRANG_NGUON_LABELS).map(([value, label]) => (
-                    <SelectItem key={value} value={value}>
-                      {label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {errors.tinhTrang && (
-                <p className="text-sm text-destructive">{errors.tinhTrang.message}</p>
-              )}
-            </div>
-          </div>
+                onChange={(v) => setValue('tinhTrang', v as TinhTrangNguon)}
+                options={Object.entries(TINH_TRANG_NGUON_LABELS).map(([value, label]) => ({
+                  value,
+                  label,
+                }))}
+              />
+            </Form.Item>
+          </Flex>
 
-          <div className="space-y-2">
-            <Label htmlFor="danhGia">Đánh giá</Label>
-            <textarea
-              id="danhGia"
-              className="flex min-h-20 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          <Form.Item
+            label="Đánh giá"
+            validateStatus={errors.danhGia ? 'error' : undefined}
+            help={errors.danhGia?.message}
+          >
+            <Input.TextArea
+              rows={3}
               placeholder="Ghi chú về chất lượng nguồn..."
               {...register('danhGia')}
             />
-            {errors.danhGia && <p className="text-sm text-destructive">{errors.danhGia.message}</p>}
-          </div>
+          </Form.Item>
 
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Hủy
+          <Flex justify="end" gap="small">
+            <Button onClick={() => onOpenChange(false)}>Hủy</Button>
+            <Button type="primary" htmlType="submit" loading={pending}>
+              Lưu
             </Button>
-            <Button type="submit" disabled={pending}>
-              {pending ? 'Đang lưu...' : 'Lưu'}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+          </Flex>
+        </Form>
+      </form>
+    </Modal>
   );
 }
