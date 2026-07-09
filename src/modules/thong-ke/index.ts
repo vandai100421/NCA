@@ -4,6 +4,8 @@ export type {
   TrangThaiCount,
   NguonCount,
   ThongKeThoiGian,
-  ThongKeNguonThoiGian,
+  NguonDanhGia,
+  NhuCauTheoLoai,
+  LoaiAnhChupCount,
   ChamHanItem,
 } from './api/thong-ke-service';

@@ -24,7 +24,7 @@ enum LoaiAnhChup {
 
 enum TrangThaiNhuCau {
   DA_DAT
-  FAIL
+  DA_HUY
   DA_NHAN
 }
 

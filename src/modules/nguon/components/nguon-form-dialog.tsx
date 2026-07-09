@@ -1,6 +1,5 @@
 'use client';
 
-import { useEffect } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { App, Button, Flex, Form, Input, Modal, Select } from 'antd';
@@ -29,37 +28,26 @@ export function NguonFormDialog({ open, onOpenChange, editing }: NguonFormDialog
   const updateMut = useUpdateNguon();
 
   const {
-    register,
     handleSubmit,
-    reset,
     setValue,
     control,
     formState: { errors },
   } = useForm<FormValues>({
     resolver: zodResolver(createNguonSchema) as never,
     defaultValues: {
-      nguon: 'vệ tinh',
-      tenNguon: '',
-      thoiGianSuDung: '',
-      tinhTrang: 'HOAT_DONG',
-      danhGia: '',
+      nguon: (editing?.nguon ?? 'vệ tinh') as (typeof NGUON_LOAI_OPTIONS)[number],
+      tenNguon: editing?.tenNguon ?? '',
+      thoiGianSuDung: editing?.thoiGianSuDung ?? '',
+      tinhTrang: editing?.tinhTrang ?? 'HOAT_DONG',
+      danhGia: editing?.danhGia ?? '',
     },
   });
 
   const nguonValue = useWatch({ control, name: 'nguon' });
+  const tenNguonValue = useWatch({ control, name: 'tenNguon' });
+  const thoiGianSuDungValue = useWatch({ control, name: 'thoiGianSuDung' });
   const tinhTrangValue = useWatch({ control, name: 'tinhTrang' });
-
-  useEffect(() => {
-    if (open) {
-      reset({
-        nguon: (editing?.nguon ?? 'vệ tinh') as (typeof NGUON_LOAI_OPTIONS)[number],
-        tenNguon: editing?.tenNguon ?? '',
-        thoiGianSuDung: editing?.thoiGianSuDung ?? '',
-        tinhTrang: editing?.tinhTrang ?? 'HOAT_DONG',
-        danhGia: editing?.danhGia ?? '',
-      });
-    }
-  }, [open, editing, reset]);
+  const danhGiaValue = useWatch({ control, name: 'danhGia' });
 
   const onSubmit = handleSubmit(async (values) => {
     const input: CreateNguonInput = {
@@ -72,10 +60,10 @@ export function NguonFormDialog({ open, onOpenChange, editing }: NguonFormDialog
     try {
       if (isEdit && editing) {
         await updateMut.mutateAsync({ id: editing.id, input });
-        notification.success({ message: 'Đã cập nhật nguồn' });
+        notification.success({ title: 'Đã cập nhật nguồn' });
       } else {
         await createMut.mutateAsync(input);
-        notification.success({ message: 'Đã tạo nguồn mới' });
+        notification.success({ title: 'Đã tạo nguồn mới' });
       }
       onOpenChange(false);
     } catch (e) {
@@ -95,6 +83,7 @@ export function NguonFormDialog({ open, onOpenChange, editing }: NguonFormDialog
       onCancel={() => onOpenChange(false)}
       footer={null}
       width={640}
+      destroyOnHidden
     >
       <form onSubmit={onSubmit} style={{ marginTop: 16 }}>
         <Form layout="vertical" component={false}>
@@ -121,7 +110,11 @@ export function NguonFormDialog({ open, onOpenChange, editing }: NguonFormDialog
               validateStatus={errors.tenNguon ? 'error' : undefined}
               help={errors.tenNguon?.message}
             >
-              <Input placeholder="VD: VT-Optical-Sat1" {...register('tenNguon')} />
+              <Input
+                value={tenNguonValue}
+                onChange={(e) => setValue('tenNguon', e.target.value)}
+                placeholder="VD: VT-Optical-Sat1"
+              />
             </Form.Item>
           </Flex>
 
@@ -132,7 +125,11 @@ export function NguonFormDialog({ open, onOpenChange, editing }: NguonFormDialog
               validateStatus={errors.thoiGianSuDung ? 'error' : undefined}
               help={errors.thoiGianSuDung?.message}
             >
-              <Input placeholder="VD: 01/01/2025 - 31/12/2025" {...register('thoiGianSuDung')} />
+              <Input
+                value={thoiGianSuDungValue}
+                onChange={(e) => setValue('thoiGianSuDung', e.target.value)}
+                placeholder="VD: 01/01/2025 - 31/12/2025"
+              />
             </Form.Item>
 
             <Form.Item
@@ -159,8 +156,9 @@ export function NguonFormDialog({ open, onOpenChange, editing }: NguonFormDialog
           >
             <Input.TextArea
               rows={3}
+              value={danhGiaValue}
+              onChange={(e) => setValue('danhGia', e.target.value)}
               placeholder="Ghi chú về chất lượng nguồn..."
-              {...register('danhGia')}
             />
           </Form.Item>
 

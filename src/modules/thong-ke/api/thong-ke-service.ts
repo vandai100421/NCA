@@ -1,5 +1,9 @@
 import { prisma } from '@/lib/db';
-import type { LoaiNhuCau, TrangThaiNhuCau } from '@/infrastructure/prisma/generated/client';
+import type {
+  LoaiAnhChup,
+  LoaiNhuCau,
+  TrangThaiNhuCau,
+} from '@/infrastructure/prisma/generated/client';
 
 export interface TrangThaiCount {
   trangThai: TrangThaiNhuCau;
@@ -77,13 +81,24 @@ export async function getTongQuan(): Promise<TongQuanStats> {
   };
 }
 
-export interface ThongKeNguonThoiGian {
+// ===== Thống kê theo thời gian (báo cáo chi tiết) =====
+
+export interface LoaiAnhChupCount {
+  loaiAnhChup: LoaiAnhChup;
+  count: number;
+}
+
+export interface NguonDanhGia {
   nguonId: number;
   tenNguon: string;
   nguon: string;
   tong: number;
+  daNhan: number;
   dungHan: number;
   chamHan: number;
+  tiLeDungHan: number;
+  soNgayTreTrungBinh: number;
+  theoLoaiAnh: LoaiAnhChupCount[];
 }
 
 export interface ChamHanItem {
@@ -91,17 +106,29 @@ export interface ChamHanItem {
   mucTieuTen: string;
   nguonTen: string;
   loaiNhuCau: LoaiNhuCau;
+  loaiAnhChup: LoaiAnhChup;
   thoiGianTra: string;
   hanMongMuon: string;
   soNgayTre: number;
 }
 
+export interface NhuCauTheoLoai {
+  loaiNhuCau: LoaiNhuCau;
+  tongDat: number;
+  daNhan: number;
+  daHuy: number;
+  chuaDenHan: number;
+  theoLoaiAnh: LoaiAnhChupCount[];
+}
+
 export interface ThongKeThoiGian {
-  tongDaTraAnh: number;
-  dungHan: number;
-  chamHan: number;
+  tongNhuCau: number;
+  tongDaNhan: number;
+  tongDungHan: number;
+  tongChamHan: number;
   tiLeDungHan: number;
-  theoNguon: ThongKeNguonThoiGian[];
+  theoLoaiNhuCau: NhuCauTheoLoai[];
+  theoNguon: NguonDanhGia[];
   danhSachChamHan: ChamHanItem[];
 }
 
@@ -111,12 +138,24 @@ function tinhSoNgayTre(thoiGianTra: Date, han: Date): number {
   return Math.ceil((thoiGianTra.getTime() - han.getTime()) / MS_PER_DAY);
 }
 
-export async function getThongKeThoiGian(tuNgay?: Date, denNgay?: Date): Promise<ThongKeThoiGian> {
+function getHan(n: {
+  loaiNhuCau: LoaiNhuCau;
+  thoiGianChup: Date | null;
+  thoiGianMongMuonDen: Date | null;
+}): Date | null {
+  return n.loaiNhuCau === 'CO_DINH' ? (n.thoiGianChup ?? null) : (n.thoiGianMongMuonDen ?? null);
+}
+
+export async function getThongKeThoiGian(
+  tuNgay?: Date,
+  denNgay?: Date,
+  nguonIds?: number[],
+): Promise<ThongKeThoiGian> {
+  // Query theo thoiGianDat (nhu cầu được đặt trong khoảng thời gian)
   const where = {
-    trangThai: 'DA_NHAN' as const,
-    thoiGianTra: { not: null },
-    ...(tuNgay && { thoiGianTra: { gte: tuNgay } }),
-    ...(denNgay && { thoiGianTra: { lte: denNgay } }),
+    ...(tuNgay && { thoiGianDat: { gte: tuNgay } }),
+    ...(denNgay && { thoiGianDat: { lte: denNgay } }),
+    ...(nguonIds && nguonIds.length > 0 ? { nguonId: { in: nguonIds } } : {}),
   };
 
   const rows = await prisma.nhuCauAnh.findMany({
@@ -125,63 +164,140 @@ export async function getThongKeThoiGian(tuNgay?: Date, denNgay?: Date): Promise
       mucTieu: { select: { ten: true } },
       nguon: { select: { tenNguon: true, nguon: true } },
     },
-    orderBy: { thoiGianTra: 'desc' },
+    orderBy: { thoiGianDat: 'desc' },
   });
 
-  let dungHan = 0;
-  let chamHan = 0;
-  const theoNguonMap = new Map<number, ThongKeNguonThoiGian>();
-  const danhSachChamHan: ChamHanItem[] = [];
-
-  for (const n of rows) {
-    const thoiGianTra = n.thoiGianTra;
-    if (!thoiGianTra) continue;
-
-    const han =
-      n.loaiNhuCau === 'CO_DINH' ? (n.thoiGianChup ?? null) : (n.thoiGianMongMuonDen ?? null);
-
-    const nguonEntry = theoNguonMap.get(n.nguonId) ?? {
-      nguonId: n.nguonId,
-      tenNguon: n.nguon.tenNguon,
-      nguon: n.nguon.nguon,
-      tong: 0,
-      dungHan: 0,
-      chamHan: 0,
-    };
-
-    nguonEntry.tong += 1;
-
-    if (han && thoiGianTra.getTime() <= han.getTime()) {
-      dungHan += 1;
-      nguonEntry.dungHan += 1;
-    } else if (han) {
-      chamHan += 1;
-      nguonEntry.chamHan += 1;
-      danhSachChamHan.push({
-        id: n.id,
-        mucTieuTen: n.mucTieu.ten,
-        nguonTen: n.nguon.tenNguon,
-        loaiNhuCau: n.loaiNhuCau,
-        thoiGianTra: thoiGianTra.toISOString(),
-        hanMongMuon: han.toISOString(),
-        soNgayTre: tinhSoNgayTre(thoiGianTra, han),
-      });
-    } else {
-      // không có hạn mong muốn → không tính đúng/chậm, vẫn计入 tong
-    }
-
-    theoNguonMap.set(n.nguonId, nguonEntry);
+  // Theo loại nhu cầu
+  const theoLoaiMap = new Map<LoaiNhuCau, NhuCauTheoLoai>();
+  for (const loai of ['CO_DINH', 'DOT_XUAT'] as const) {
+    theoLoaiMap.set(loai, {
+      loaiNhuCau: loai,
+      tongDat: 0,
+      daNhan: 0,
+      daHuy: 0,
+      chuaDenHan: 0,
+      theoLoaiAnh: [],
+    });
   }
 
-  const tongDaTraAnh = rows.length;
-  const tiLeDungHan = tongDaTraAnh > 0 ? Math.round((dungHan / tongDaTraAnh) * 100) : 0;
+  // Theo nguồn
+  const theoNguonMap = new Map<number, NguonDanhGia>();
+  // Theo loại ảnh (aggregate per nguồn)
+  const nguonLoaiAnhMap = new Map<number, Map<LoaiAnhChup, number>>();
+  // Danh sách chậm hạn
+  const danhSachChamHan: ChamHanItem[] = [];
+
+  let tongDaNhan = 0;
+  let tongDungHan = 0;
+  let tongChamHan = 0;
+
+  for (const n of rows) {
+    const loaiEntry = theoLoaiMap.get(n.loaiNhuCau)!;
+    loaiEntry.tongDat += 1;
+
+    // Loại ảnh theo loại nhu cầu
+    const loaiAnhLoaiMap = new Map<LoaiAnhChup, number>();
+    loaiAnhLoaiMap.set(n.loaiAnhChup, (loaiAnhLoaiMap.get(n.loaiAnhChup) ?? 0) + 1);
+    loaiEntry.theoLoaiAnh = mergeLoaiAnhCount(loaiEntry.theoLoaiAnh, loaiAnhLoaiMap);
+
+    if (n.trangThai === 'DA_NHAN') {
+      loaiEntry.daNhan += 1;
+      tongDaNhan += 1;
+    } else if (n.trangThai === 'DA_HUY') {
+      loaiEntry.daHuy += 1;
+    } else {
+      // DA_DAT — chưa đến hạn hoặc đang chờ
+      loaiEntry.chuaDenHan += 1;
+    }
+
+    // Thống kê nguồn (chỉ tính DA_NHAN cho đánh giá đúng/chậm hạn)
+    if (n.trangThai === 'DA_NHAN') {
+      const nguonEntry = theoNguonMap.get(n.nguonId) ?? {
+        nguonId: n.nguonId,
+        tenNguon: n.nguon.tenNguon,
+        nguon: n.nguon.nguon,
+        tong: 0,
+        daNhan: 0,
+        dungHan: 0,
+        chamHan: 0,
+        tiLeDungHan: 0,
+        soNgayTreTrungBinh: 0,
+        theoLoaiAnh: [],
+      };
+      const fullEntry: NguonDanhGia = nguonEntry;
+      fullEntry.tong += 1;
+      fullEntry.daNhan += 1;
+
+      // Loại ảnh theo nguồn
+      const nguonLaMap = nguonLoaiAnhMap.get(n.nguonId) ?? new Map<LoaiAnhChup, number>();
+      nguonLaMap.set(n.loaiAnhChup, (nguonLaMap.get(n.loaiAnhChup) ?? 0) + 1);
+      nguonLoaiAnhMap.set(n.nguonId, nguonLaMap);
+
+      const thoiGianTra = n.thoiGianTra;
+      const han = getHan(n);
+      if (thoiGianTra && han) {
+        if (thoiGianTra.getTime() <= han.getTime()) {
+          fullEntry.dungHan += 1;
+          tongDungHan += 1;
+        } else {
+          fullEntry.chamHan += 1;
+          tongChamHan += 1;
+          danhSachChamHan.push({
+            id: n.id,
+            mucTieuTen: n.mucTieu.ten,
+            nguonTen: n.nguon.tenNguon,
+            loaiNhuCau: n.loaiNhuCau,
+            loaiAnhChup: n.loaiAnhChup,
+            thoiGianTra: thoiGianTra.toISOString(),
+            hanMongMuon: han.toISOString(),
+            soNgayTre: tinhSoNgayTre(thoiGianTra, han),
+          });
+        }
+      }
+
+      theoNguonMap.set(n.nguonId, fullEntry);
+    }
+  }
+
+  // Tính tỷ lệ + số ngày trễ trung bình cho mỗi nguồn
+  const theoNguon: NguonDanhGia[] = [];
+  for (const [nguonId, entry] of theoNguonMap) {
+    entry.tiLeDungHan = entry.tong > 0 ? Math.round((entry.dungHan / entry.tong) * 100) : 0;
+    // Số ngày trễ trung bình (chỉ tính các bản ghi chậm hạn)
+    const chamHanItems = danhSachChamHan.filter((c) => c.nguonTen === entry.tenNguon);
+    entry.soNgayTreTrungBinh =
+      chamHanItems.length > 0
+        ? Math.round(chamHanItems.reduce((sum, c) => sum + c.soNgayTre, 0) / chamHanItems.length)
+        : 0;
+    entry.theoLoaiAnh = Array.from(nguonLoaiAnhMap.get(nguonId)?.entries() ?? []).map(
+      ([loaiAnhChup, count]) => ({ loaiAnhChup, count }),
+    );
+    theoNguon.push(entry);
+  }
+  theoNguon.sort((a, b) => b.tong - a.tong);
+
+  const tongNhuCau = rows.length;
+  const tiLeDungHan = tongDaNhan > 0 ? Math.round((tongDungHan / tongDaNhan) * 100) : 0;
 
   return {
-    tongDaTraAnh,
-    dungHan,
-    chamHan,
+    tongNhuCau,
+    tongDaNhan,
+    tongDungHan,
+    tongChamHan,
     tiLeDungHan,
-    theoNguon: Array.from(theoNguonMap.values()).sort((a, b) => b.chamHan - a.chamHan),
+    theoLoaiNhuCau: Array.from(theoLoaiMap.values()),
+    theoNguon,
     danhSachChamHan: danhSachChamHan.sort((a, b) => b.soNgayTre - a.soNgayTre),
   };
+}
+
+function mergeLoaiAnhCount(
+  existing: LoaiAnhChupCount[],
+  incoming: Map<LoaiAnhChup, number>,
+): LoaiAnhChupCount[] {
+  const map = new Map<LoaiAnhChup, number>(existing.map((e) => [e.loaiAnhChup, e.count]));
+  for (const [k, v] of incoming) {
+    map.set(k, (map.get(k) ?? 0) + v);
+  }
+  return Array.from(map.entries()).map(([loaiAnhChup, count]) => ({ loaiAnhChup, count }));
 }

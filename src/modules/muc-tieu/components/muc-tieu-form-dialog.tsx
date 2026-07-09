@@ -1,7 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { App, Button, Flex, Form, Input, Modal } from 'antd';
 import { useCreateMucTieu, useUpdateMucTieu } from '../hooks/use-muc-tieu';
@@ -21,29 +20,25 @@ export function MucTieuFormDialog({ open, onOpenChange, editing }: MucTieuFormDi
   const updateMut = useUpdateMucTieu();
 
   const {
-    register,
     handleSubmit,
-    reset,
+    setValue,
+    control,
     formState: { errors },
   } = useForm<CreateMucTieuInput>({
     resolver: zodResolver(createMucTieuSchema),
-    defaultValues: { ten: '' },
+    defaultValues: { ten: editing?.ten ?? '' },
   });
 
-  useEffect(() => {
-    if (open) {
-      reset({ ten: editing?.ten ?? '' });
-    }
-  }, [open, editing, reset]);
+  const tenValue = useWatch({ control, name: 'ten' });
 
   const onSubmit = handleSubmit(async (values) => {
     try {
       if (isEdit && editing) {
         await updateMut.mutateAsync({ id: editing.id, input: values });
-        notification.success({ message: 'Đã cập nhật mục tiêu' });
+        notification.success({ title: 'Đã cập nhật mục tiêu' });
       } else {
         await createMut.mutateAsync(values);
-        notification.success({ message: 'Đã tạo mục tiêu mới' });
+        notification.success({ title: 'Đã tạo mục tiêu mới' });
       }
       onOpenChange(false);
     } catch (e) {
@@ -62,6 +57,7 @@ export function MucTieuFormDialog({ open, onOpenChange, editing }: MucTieuFormDi
       open={open}
       onCancel={() => onOpenChange(false)}
       footer={null}
+      destroyOnHidden
     >
       <form onSubmit={onSubmit} style={{ marginTop: 16 }}>
         <Form layout="vertical" component={false}>
@@ -70,7 +66,11 @@ export function MucTieuFormDialog({ open, onOpenChange, editing }: MucTieuFormDi
             validateStatus={errors.ten ? 'error' : undefined}
             help={errors.ten?.message}
           >
-            <Input placeholder="VD: Khu công nghiệp Bắc Thăng Long" {...register('ten')} />
+            <Input
+              value={tenValue}
+              onChange={(e) => setValue('ten', e.target.value)}
+              placeholder="VD: Khu công nghiệp Bắc Thăng Long"
+            />
           </Form.Item>
           <Flex justify="end" gap="small">
             <Button onClick={() => onOpenChange(false)}>Hủy</Button>

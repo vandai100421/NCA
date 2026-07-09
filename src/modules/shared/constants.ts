@@ -22,7 +22,7 @@ export const LOAI_ANH_CHUP_LABELS: Record<LoaiAnhChup, string> = {
 
 export const TRANG_THAI_NHU_CAU_LABELS: Record<TrangThaiNhuCau, string> = {
   DA_DAT: 'Đã đặt',
-  FAIL: 'Fail',
+  DA_HUY: 'Đã hủy',
   DA_NHAN: 'Đã nhận',
 };
 
@@ -46,7 +46,7 @@ export const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
 
 export const TRANG_THAI_TAG_COLOR: Record<TrangThaiNhuCau, string> = {
   DA_DAT: 'blue',
-  FAIL: 'red',
+  DA_HUY: 'default',
   DA_NHAN: 'green',
 };
 

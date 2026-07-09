@@ -63,9 +63,10 @@ export const updateNhuCauSchema = z
   );
 
 export const transitionSchema = z.object({
-  trangThaiMoi: z.enum(['DA_DAT', 'FAIL', 'DA_NHAN'], {
+  trangThaiMoi: z.enum(['DA_DAT', 'DA_HUY', 'DA_NHAN'], {
     message: 'Trạng thái mới không hợp lệ',
   }),
+  thoiGianTra: z.coerce.date().optional(),
   ghiChu: z.string().trim().max(1000, 'Ghi chú quá 1000 ký tự').optional().or(z.literal('')),
 });
 
@@ -73,14 +74,42 @@ export type CreateNhuCauInput = z.infer<typeof createNhuCauSchema>;
 export type UpdateNhuCauInput = z.infer<typeof updateNhuCauSchema>;
 export type TransitionInput = z.infer<typeof transitionSchema>;
 
+const csvString = z
+  .string()
+  .optional()
+  .transform((v) =>
+    v && v.trim().length > 0
+      ? v
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean)
+      : undefined,
+  );
+
+const csvNumberArray = z
+  .string()
+  .optional()
+  .transform((v) => {
+    if (!v || v.trim().length === 0) return undefined;
+    const nums = v
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .map(Number)
+      .filter((n) => Number.isInteger(n) && n > 0);
+    return nums.length > 0 ? nums : undefined;
+  });
+
 export const nhuCauListQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
   pageSize: z.coerce.number().int().positive().max(100).default(10),
-  trangThai: z.enum(['DA_DAT', 'FAIL', 'DA_NHAN']).optional(),
-  nguonId: z.coerce.number().int().positive().optional(),
-  mucTieuId: z.coerce.number().int().positive().optional(),
-  loaiNhuCau: z.enum(['CO_DINH', 'DOT_XUAT']).optional(),
-  loaiAnhChup: loaiAnhChupEnum.optional(),
+  trangThai: csvString.pipe(z.array(z.enum(['DA_DAT', 'DA_HUY', 'DA_NHAN'])).optional()),
+  nguonId: csvNumberArray,
+  mucTieuId: csvNumberArray,
+  loaiNhuCau: csvString.pipe(z.array(z.enum(['CO_DINH', 'DOT_XUAT'])).optional()),
+  loaiAnhChup: csvString.pipe(z.array(loaiAnhChupEnum).optional()),
+  tuNgay: z.string().optional(),
+  denNgay: z.string().optional(),
   search: z.string().trim().optional(),
 });
 

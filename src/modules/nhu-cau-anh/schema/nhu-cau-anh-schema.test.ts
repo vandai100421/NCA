@@ -173,8 +173,8 @@ describe('transitionSchema', () => {
   });
 
   it('hợp lệ không có ghiChu', () => {
-    const parsed = transitionSchema.parse({ trangThaiMoi: 'FAIL' });
-    expect(parsed.trangThaiMoi).toBe('FAIL');
+    const parsed = transitionSchema.parse({ trangThaiMoi: 'DA_HUY' });
+    expect(parsed.trangThaiMoi).toBe('DA_HUY');
   });
 
   it('lỗi khi thiếu trangThaiMoi', () => {

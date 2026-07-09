@@ -46,7 +46,7 @@ export function MucTieuList() {
     if (!ok) return;
     try {
       await deleteMut.mutateAsync(m.id);
-      notification.success({ message: 'Đã xóa mục tiêu' });
+      notification.success({ title: 'Đã xóa mục tiêu' });
     } catch (e) {
       notification.error({
         message: 'Không xóa được',
@@ -136,7 +136,12 @@ export function MucTieuList() {
         )}
       </Card>
 
-      <MucTieuFormDialog open={open} onOpenChange={setOpen} editing={editing} />
+      <MucTieuFormDialog
+        key={editing ? `edit-${editing.id}` : 'create'}
+        open={open}
+        onOpenChange={setOpen}
+        editing={editing}
+      />
     </div>
   );
 }

@@ -32,29 +32,48 @@ import { confirmDelete } from '@/lib/confirm';
 import { searchableProps } from '@/lib/select';
 import type { MucTieu, Nguon } from '@/infrastructure/prisma/generated/client';
 import {
+  LOAI_ANH_CHUP_LABELS,
   LOAI_NHU_CAU_LABELS,
-  NGUON_LOAI_LABELS,
   PAGE_SIZE_OPTIONS,
   TRANG_THAI_NHU_CAU_LABELS,
   TRANG_THAI_TAG_COLOR,
 } from '@/modules/shared/constants';
-import type { LoaiNhuCau, TrangThaiNhuCau } from '@/infrastructure/prisma/generated/client';
+import type {
+  LoaiAnhChup,
+  LoaiNhuCau,
+  TrangThaiNhuCau,
+} from '@/infrastructure/prisma/generated/client';
 import { useNhuCauList, useDeleteNhuCau } from '../hooks/use-nhu-cau-anh';
 import { NhuCauFormDialog } from './nhu-cau-form-dialog';
+import { ThongKeThoiGianPanel } from '@/modules/thong-ke/components/thong-ke-thoi-gian-panel';
 import type { NhuCauAnhDetail } from '../api/nhu-cau-anh-service';
 
 const { Title, Paragraph, Text } = Typography;
 
-const ALL = 'ALL' as const;
+const formatDateTime = (d: Date | string | null | undefined): string => {
+  if (!d) return '—';
+  const date = typeof d === 'string' ? new Date(d) : d;
+  if (Number.isNaN(date.getTime())) return '—';
+  return date.toLocaleString('vi-VN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+};
 
 export function NhuCauList() {
   const { notification } = App.useApp();
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
-  const [trangThai, setTrangThai] = useState<TrangThaiNhuCau | typeof ALL>(ALL);
-  const [nguonId, setNguonId] = useState<number | typeof ALL>(ALL);
-  const [mucTieuId, setMucTieuId] = useState<number | typeof ALL>(ALL);
-  const [loaiNhuCau, setLoaiNhuCau] = useState<LoaiNhuCau | typeof ALL>(ALL);
+  const [trangThai, setTrangThai] = useState<TrangThaiNhuCau[]>([]);
+  const [nguonIds, setNguonIds] = useState<number[]>([]);
+  const [mucTieuIds, setMucTieuIds] = useState<number[]>([]);
+  const [loaiNhuCau, setLoaiNhuCau] = useState<LoaiNhuCau[]>([]);
+  const [loaiAnhChup, setLoaiAnhChup] = useState<LoaiAnhChup[]>([]);
+  const [tuNgay, setTuNgay] = useState('');
+  const [denNgay, setDenNgay] = useState('');
   const [search, setSearch] = useState('');
 
   const [open, setOpen] = useState(false);
@@ -73,10 +92,13 @@ export function NhuCauList() {
   const { data, isLoading, error, isFetching, refetch } = useNhuCauList({
     page,
     pageSize,
-    trangThai: trangThai === ALL ? undefined : trangThai,
-    nguonId: nguonId === ALL ? undefined : nguonId,
-    mucTieuId: mucTieuId === ALL ? undefined : mucTieuId,
-    loaiNhuCau: loaiNhuCau === ALL ? undefined : loaiNhuCau,
+    trangThai: trangThai.length > 0 ? trangThai : undefined,
+    nguonId: nguonIds.length > 0 ? nguonIds : undefined,
+    mucTieuId: mucTieuIds.length > 0 ? mucTieuIds : undefined,
+    loaiNhuCau: loaiNhuCau.length > 0 ? loaiNhuCau : undefined,
+    loaiAnhChup: loaiAnhChup.length > 0 ? loaiAnhChup : undefined,
+    tuNgay: tuNgay || undefined,
+    denNgay: denNgay || undefined,
     search: search || undefined,
   });
 
@@ -95,7 +117,7 @@ export function NhuCauList() {
     if (!ok) return;
     try {
       await deleteMut.mutateAsync(n.id);
-      notification.success({ message: 'Đã xóa nhu cầu ảnh' });
+      notification.success({ title: 'Đã xóa nhu cầu ảnh' });
     } catch (e) {
       notification.error({
         message: 'Không xóa được',
@@ -105,20 +127,26 @@ export function NhuCauList() {
   };
 
   const resetFilters = () => {
-    setTrangThai(ALL);
-    setNguonId(ALL);
-    setMucTieuId(ALL);
-    setLoaiNhuCau(ALL);
+    setTrangThai([]);
+    setNguonIds([]);
+    setMucTieuIds([]);
+    setLoaiNhuCau([]);
+    setLoaiAnhChup([]);
+    setTuNgay('');
+    setDenNgay('');
     setSearch('');
     setPage(1);
   };
 
   const handleExport = () => {
     const params = new URLSearchParams();
-    if (trangThai !== ALL) params.set('trangThai', trangThai);
-    if (nguonId !== ALL) params.set('nguonId', String(nguonId));
-    if (mucTieuId !== ALL) params.set('mucTieuId', String(mucTieuId));
-    if (loaiNhuCau !== ALL) params.set('loaiNhuCau', loaiNhuCau);
+    if (trangThai.length > 0) params.set('trangThai', trangThai.join(','));
+    if (nguonIds.length > 0) params.set('nguonId', nguonIds.join(','));
+    if (mucTieuIds.length > 0) params.set('mucTieuId', mucTieuIds.join(','));
+    if (loaiNhuCau.length > 0) params.set('loaiNhuCau', loaiNhuCau.join(','));
+    if (loaiAnhChup.length > 0) params.set('loaiAnhChup', loaiAnhChup.join(','));
+    if (tuNgay) params.set('tuNgay', tuNgay);
+    if (denNgay) params.set('denNgay', denNgay);
     if (search) params.set('search', search);
     const qs = params.toString();
     window.location.href = `/api/nhu-cau-anh/export${qs ? `?${qs}` : ''}`;
@@ -126,14 +154,14 @@ export function NhuCauList() {
 
   const total = data?.total ?? 0;
 
-  const nguonFilterOptions = [
-    { value: ALL, label: 'Tất cả nguồn' },
-    ...(nguonData ?? []).map((n) => ({ value: String(n.id), label: n.tenNguon })),
-  ];
-  const mucTieuFilterOptions = [
-    { value: ALL, label: 'Tất cả mục tiêu' },
-    ...(mucTieuData ?? []).map((m) => ({ value: String(m.id), label: m.ten })),
-  ];
+  const nguonFilterOptions = (nguonData ?? []).map((n) => ({
+    value: n.id,
+    label: n.tenNguon,
+  }));
+  const mucTieuFilterOptions = (mucTieuData ?? []).map((m) => ({
+    value: m.id,
+    label: m.ten,
+  }));
 
   const columns: TableProps<NhuCauAnhDetail>['columns'] = [
     {
@@ -146,6 +174,18 @@ export function NhuCauList() {
         </Link>
       ),
     },
+    {
+      title: 'Thời gian đặt',
+      dataIndex: 'thoiGianDat',
+      width: 140,
+      sorter: (a, b) => new Date(a.thoiGianDat).getTime() - new Date(b.thoiGianDat).getTime(),
+      defaultSortOrder: 'ascend',
+      render: (v: Date | string) => (
+        <Text type="secondary" style={{ fontSize: 12 }}>
+          {formatDateTime(v)}
+        </Text>
+      ),
+    },
     { title: 'Mục tiêu', dataIndex: ['mucTieu', 'ten'], ellipsis: true },
     {
       title: 'Nguồn',
@@ -154,11 +194,12 @@ export function NhuCauList() {
       render: (_, n) => (
         <Flex gap={6} align="center" wrap>
           <Tag>
-            {NGUON_LOAI_LABELS[n.nguon.nguon as keyof typeof NGUON_LOAI_LABELS] ?? n.nguon.nguon}
-          </Tag>
-          <Text type="secondary" style={{ fontSize: 12 }}>
             {n.nguon.tenNguon}
-          </Text>
+            {/* {NGUON_LOAI_LABELS[n.nguon.nguon as keyof typeof NGUON_LOAI_LABELS] ?? n.nguon.nguon} */}
+          </Tag>
+          {/* <Text type="secondary" style={{ fontSize: 12 }}>
+            {n.nguon.tenNguon}
+          </Text> */}
         </Flex>
       ),
     },
@@ -169,9 +210,62 @@ export function NhuCauList() {
       render: (v: LoaiNhuCau) => <Tag>{LOAI_NHU_CAU_LABELS[v]}</Tag>,
     },
     {
+      title: 'Loại ảnh',
+      dataIndex: 'loaiAnhChup',
+      width: 110,
+      render: (v: LoaiAnhChup) => <Tag>{LOAI_ANH_CHUP_LABELS[v]}</Tag>,
+    },
+    {
       title: 'Địa bàn',
       dataIndex: 'diaBan',
       ellipsis: true,
+    },
+    {
+      title: 'Ngày nhận mong muốn',
+      key: 'mongMuon',
+      width: 200,
+      sorter: (a, b) => {
+        const getMongMuon = (n: NhuCauAnhDetail) =>
+          n.loaiNhuCau === 'CO_DINH'
+            ? n.thoiGianChup
+            : (n.thoiGianMongMuonTu ?? n.thoiGianMongMuonDen);
+        const va = getMongMuon(a);
+        const vb = getMongMuon(b);
+        if (!va && !vb) return 0;
+        if (!va) return 1;
+        if (!vb) return -1;
+        return new Date(va).getTime() - new Date(vb).getTime();
+      },
+      render: (_, n) => {
+        if (n.loaiNhuCau === 'CO_DINH') {
+          return (
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              {formatDateTime(n.thoiGianChup)}
+            </Text>
+          );
+        }
+        return (
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            {formatDateTime(n.thoiGianMongMuonTu)} → {formatDateTime(n.thoiGianMongMuonDen)}
+          </Text>
+        );
+      },
+    },
+    {
+      title: 'Ngày nhận',
+      dataIndex: 'thoiGianTra',
+      width: 140,
+      sorter: (a, b) => {
+        if (!a.thoiGianTra && !b.thoiGianTra) return 0;
+        if (!a.thoiGianTra) return 1;
+        if (!b.thoiGianTra) return -1;
+        return new Date(a.thoiGianTra).getTime() - new Date(b.thoiGianTra).getTime();
+      },
+      render: (v: Date | string | null) => (
+        <Text type="secondary" style={{ fontSize: 12 }}>
+          {formatDateTime(v)}
+        </Text>
+      ),
     },
     {
       title: 'Trạng thái',
@@ -235,27 +329,32 @@ export function NhuCauList() {
             <Col xs={24} sm={12} md={8} lg={6}>
               <Form.Item label="Trạng thái" style={{ marginBottom: 0 }}>
                 <Select
+                  mode="multiple"
+                  allowClear
+                  maxTagCount="responsive"
+                  placeholder="Tất cả trạng thái"
                   value={trangThai}
                   onChange={(v) => {
                     setTrangThai(v);
                     setPage(1);
                   }}
-                  options={[
-                    { value: ALL, label: 'Tất cả trạng thái' },
-                    ...Object.entries(TRANG_THAI_NHU_CAU_LABELS).map(([value, label]) => ({
-                      value,
-                      label,
-                    })),
-                  ]}
+                  options={Object.entries(TRANG_THAI_NHU_CAU_LABELS).map(([value, label]) => ({
+                    value,
+                    label,
+                  }))}
                 />
               </Form.Item>
             </Col>
             <Col xs={24} sm={12} md={8} lg={6}>
               <Form.Item label="Nguồn" style={{ marginBottom: 0 }}>
                 <Select
-                  value={nguonId === ALL ? ALL : String(nguonId)}
+                  mode="multiple"
+                  allowClear
+                  maxTagCount="responsive"
+                  placeholder="Tất cả nguồn"
+                  value={nguonIds}
                   onChange={(v) => {
-                    setNguonId(v === ALL ? ALL : Number(v));
+                    setNguonIds(v);
                     setPage(1);
                   }}
                   {...searchableProps(nguonFilterOptions)}
@@ -266,9 +365,13 @@ export function NhuCauList() {
             <Col xs={24} sm={12} md={8} lg={6}>
               <Form.Item label="Mục tiêu" style={{ marginBottom: 0 }}>
                 <Select
-                  value={mucTieuId === ALL ? ALL : String(mucTieuId)}
+                  mode="multiple"
+                  allowClear
+                  maxTagCount="responsive"
+                  placeholder="Tất cả mục tiêu"
+                  value={mucTieuIds}
                   onChange={(v) => {
-                    setMucTieuId(v === ALL ? ALL : Number(v));
+                    setMucTieuIds(v);
                     setPage(1);
                   }}
                   {...searchableProps(mucTieuFilterOptions)}
@@ -279,18 +382,62 @@ export function NhuCauList() {
             <Col xs={24} sm={12} md={8} lg={6}>
               <Form.Item label="Loại nhu cầu" style={{ marginBottom: 0 }}>
                 <Select
+                  mode="multiple"
+                  allowClear
+                  maxTagCount="responsive"
+                  placeholder="Tất cả loại"
                   value={loaiNhuCau}
                   onChange={(v) => {
                     setLoaiNhuCau(v);
                     setPage(1);
                   }}
-                  options={[
-                    { value: ALL, label: 'Tất cả loại' },
-                    ...Object.entries(LOAI_NHU_CAU_LABELS).map(([value, label]) => ({
-                      value,
-                      label,
-                    })),
-                  ]}
+                  options={Object.entries(LOAI_NHU_CAU_LABELS).map(([value, label]) => ({
+                    value,
+                    label,
+                  }))}
+                />
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={12} md={8} lg={6}>
+              <Form.Item label="Loại ảnh" style={{ marginBottom: 0 }}>
+                <Select
+                  mode="multiple"
+                  allowClear
+                  maxTagCount="responsive"
+                  placeholder="Tất cả loại ảnh"
+                  value={loaiAnhChup}
+                  onChange={(v) => {
+                    setLoaiAnhChup(v);
+                    setPage(1);
+                  }}
+                  options={Object.entries(LOAI_ANH_CHUP_LABELS).map(([value, label]) => ({
+                    value,
+                    label,
+                  }))}
+                />
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={12} md={8} lg={6}>
+              <Form.Item label="Từ ngày" style={{ marginBottom: 0 }}>
+                <Input
+                  type="date"
+                  value={tuNgay}
+                  onChange={(e) => {
+                    setTuNgay(e.target.value);
+                    setPage(1);
+                  }}
+                />
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={12} md={8} lg={6}>
+              <Form.Item label="Đến ngày" style={{ marginBottom: 0 }}>
+                <Input
+                  type="date"
+                  value={denNgay}
+                  onChange={(e) => {
+                    setDenNgay(e.target.value);
+                    setPage(1);
+                  }}
                 />
               </Form.Item>
             </Col>
@@ -307,7 +454,7 @@ export function NhuCauList() {
               </Form.Item>
             </Col>
             <Col xs={24} sm={12} md={8} lg={6}>
-              <Form.Item label=" " style={{ marginBottom: 0 }}>
+              <Form.Item label="" style={{ marginBottom: 0 }}>
                 <Button onClick={resetFilters}>Đặt lại</Button>
               </Form.Item>
             </Col>
@@ -365,12 +512,15 @@ export function NhuCauList() {
       </Card>
 
       <NhuCauFormDialog
+        key={editing ? `edit-${editing.id}` : 'create'}
         open={open}
         onOpenChange={setOpen}
         editing={editing}
         mucTieuList={mucTieuData ?? []}
         nguonList={nguonData ?? []}
       />
+
+      <ThongKeThoiGianPanel />
     </div>
   );
 }

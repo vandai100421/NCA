@@ -20,11 +20,17 @@ export function useNhuCauList(query: NhuCauListQuery) {
   const params = new URLSearchParams();
   params.set('page', String(query.page));
   params.set('pageSize', String(query.pageSize));
-  if (query.trangThai) params.set('trangThai', query.trangThai);
-  if (query.nguonId) params.set('nguonId', String(query.nguonId));
-  if (query.mucTieuId) params.set('mucTieuId', String(query.mucTieuId));
-  if (query.loaiNhuCau) params.set('loaiNhuCau', query.loaiNhuCau);
-  if (query.loaiAnhChup) params.set('loaiAnhChup', query.loaiAnhChup);
+  if (query.trangThai && query.trangThai.length > 0)
+    params.set('trangThai', query.trangThai.join(','));
+  if (query.nguonId && query.nguonId.length > 0) params.set('nguonId', query.nguonId.join(','));
+  if (query.mucTieuId && query.mucTieuId.length > 0)
+    params.set('mucTieuId', query.mucTieuId.join(','));
+  if (query.loaiNhuCau && query.loaiNhuCau.length > 0)
+    params.set('loaiNhuCau', query.loaiNhuCau.join(','));
+  if (query.loaiAnhChup && query.loaiAnhChup.length > 0)
+    params.set('loaiAnhChup', query.loaiAnhChup.join(','));
+  if (query.tuNgay) params.set('tuNgay', query.tuNgay);
+  if (query.denNgay) params.set('denNgay', query.denNgay);
   if (query.search) params.set('search', query.search);
 
   return useQuery({

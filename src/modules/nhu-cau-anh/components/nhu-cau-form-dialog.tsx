@@ -1,6 +1,5 @@
 'use client';
 
-import { useEffect } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { App, Button, Flex, Form, Input, Modal, Select } from 'antd';
@@ -48,27 +47,25 @@ export function NhuCauFormDialog({
   const updateMut = useUpdateNhuCau();
 
   const {
-    register,
     handleSubmit,
-    reset,
     setValue,
     control,
     formState: { errors },
   } = useForm<FormValues>({
     resolver: zodResolver(nhuCauFormSchema),
     defaultValues: {
-      mucTieuId: '',
-      nguonId: '',
-      loaiNhuCau: 'CO_DINH',
-      diaBan: '',
-      loaiAnhChup: 'QUANG_HOC',
-      toaDoX: '',
-      toaDoY: '',
-      thoiGianChup: '',
-      thoiGianMongMuonTu: '',
-      thoiGianMongMuonDen: '',
-      doPhanGiai: '',
-      moTa: '',
+      mucTieuId: editing ? String(editing.mucTieuId) : '',
+      nguonId: editing ? String(editing.nguonId) : '',
+      loaiNhuCau: editing?.loaiNhuCau ?? 'CO_DINH',
+      diaBan: editing?.diaBan ?? '',
+      loaiAnhChup: editing?.loaiAnhChup ?? 'QUANG_HOC',
+      toaDoX: editing ? String(editing.toaDoX) : '',
+      toaDoY: editing ? String(editing.toaDoY) : '',
+      thoiGianChup: toLocalInput(editing?.thoiGianChup),
+      thoiGianMongMuonTu: toLocalInput(editing?.thoiGianMongMuonTu),
+      thoiGianMongMuonDen: toLocalInput(editing?.thoiGianMongMuonDen),
+      doPhanGiai: editing?.doPhanGiai ?? '',
+      moTa: editing?.moTa ?? '',
     },
   });
 
@@ -76,25 +73,14 @@ export function NhuCauFormDialog({
   const mucTieuIdValue = useWatch({ control, name: 'mucTieuId' });
   const nguonIdValue = useWatch({ control, name: 'nguonId' });
   const loaiAnhChupValue = useWatch({ control, name: 'loaiAnhChup' });
-
-  useEffect(() => {
-    if (open) {
-      reset({
-        mucTieuId: editing ? String(editing.mucTieuId) : '',
-        nguonId: editing ? String(editing.nguonId) : '',
-        loaiNhuCau: editing?.loaiNhuCau ?? 'CO_DINH',
-        diaBan: editing?.diaBan ?? '',
-        loaiAnhChup: editing?.loaiAnhChup ?? 'QUANG_HOC',
-        toaDoX: editing ? String(editing.toaDoX) : '',
-        toaDoY: editing ? String(editing.toaDoY) : '',
-        thoiGianChup: toLocalInput(editing?.thoiGianChup),
-        thoiGianMongMuonTu: toLocalInput(editing?.thoiGianMongMuonTu),
-        thoiGianMongMuonDen: toLocalInput(editing?.thoiGianMongMuonDen),
-        doPhanGiai: editing?.doPhanGiai ?? '',
-        moTa: editing?.moTa ?? '',
-      });
-    }
-  }, [open, editing, reset]);
+  const diaBanValue = useWatch({ control, name: 'diaBan' });
+  const toaDoXValue = useWatch({ control, name: 'toaDoX' });
+  const toaDoYValue = useWatch({ control, name: 'toaDoY' });
+  const thoiGianChupValue = useWatch({ control, name: 'thoiGianChup' });
+  const thoiGianMongMuonTuValue = useWatch({ control, name: 'thoiGianMongMuonTu' });
+  const thoiGianMongMuonDenValue = useWatch({ control, name: 'thoiGianMongMuonDen' });
+  const doPhanGiaiValue = useWatch({ control, name: 'doPhanGiai' });
+  const moTaValue = useWatch({ control, name: 'moTa' });
 
   const onSubmit = handleSubmit(async (values) => {
     const common = {
@@ -125,10 +111,10 @@ export function NhuCauFormDialog({
     try {
       if (isEdit && editing) {
         await updateMut.mutateAsync({ id: editing.id, input: payload });
-        notification.success({ message: 'Đã cập nhật nhu cầu ảnh' });
+        notification.success({ title: 'Đã cập nhật nhu cầu ảnh' });
       } else {
         await createMut.mutateAsync(payload);
-        notification.success({ message: 'Đã tạo nhu cầu ảnh mới' });
+        notification.success({ title: 'Đã tạo nhu cầu ảnh mới' });
       }
       onOpenChange(false);
     } catch (e) {
@@ -154,6 +140,7 @@ export function NhuCauFormDialog({
       onCancel={() => onOpenChange(false)}
       footer={null}
       width={720}
+      destroyOnHidden
     >
       <form onSubmit={onSubmit} style={{ marginTop: 16 }}>
         <Form layout="vertical" component={false}>
@@ -229,7 +216,11 @@ export function NhuCauFormDialog({
             validateStatus={errors.diaBan ? 'error' : undefined}
             help={errors.diaBan?.message}
           >
-            <Input placeholder="VD: Hà Nội, quận Cầu Giấy" {...register('diaBan')} />
+            <Input
+              value={diaBanValue}
+              onChange={(e) => setValue('diaBan', e.target.value)}
+              placeholder="VD: Hà Nội, quận Cầu Giấy"
+            />
           </Form.Item>
 
           <Flex gap={16} wrap>
@@ -239,7 +230,13 @@ export function NhuCauFormDialog({
               validateStatus={errors.toaDoX ? 'error' : undefined}
               help={errors.toaDoX?.message}
             >
-              <Input type="number" step="any" placeholder="VD: 105.8342" {...register('toaDoX')} />
+              <Input
+                type="number"
+                step="any"
+                value={toaDoXValue}
+                onChange={(e) => setValue('toaDoX', e.target.value)}
+                placeholder="VD: 105.8342"
+              />
             </Form.Item>
             <Form.Item
               label="Tọa độ Y (vĩ độ)"
@@ -247,7 +244,13 @@ export function NhuCauFormDialog({
               validateStatus={errors.toaDoY ? 'error' : undefined}
               help={errors.toaDoY?.message}
             >
-              <Input type="number" step="any" placeholder="VD: 21.0278" {...register('toaDoY')} />
+              <Input
+                type="number"
+                step="any"
+                value={toaDoYValue}
+                onChange={(e) => setValue('toaDoY', e.target.value)}
+                placeholder="VD: 21.0278"
+              />
             </Form.Item>
           </Flex>
 
@@ -257,7 +260,11 @@ export function NhuCauFormDialog({
               validateStatus={errors.thoiGianChup ? 'error' : undefined}
               help={errors.thoiGianChup?.message}
             >
-              <Input type="datetime-local" {...register('thoiGianChup')} />
+              <Input
+                type="datetime-local"
+                value={thoiGianChupValue}
+                onChange={(e) => setValue('thoiGianChup', e.target.value)}
+              />
             </Form.Item>
           ) : (
             <Flex gap={16} wrap>
@@ -267,7 +274,11 @@ export function NhuCauFormDialog({
                 validateStatus={errors.thoiGianMongMuonTu ? 'error' : undefined}
                 help={errors.thoiGianMongMuonTu?.message}
               >
-                <Input type="datetime-local" {...register('thoiGianMongMuonTu')} />
+                <Input
+                  type="datetime-local"
+                  value={thoiGianMongMuonTuValue}
+                  onChange={(e) => setValue('thoiGianMongMuonTu', e.target.value)}
+                />
               </Form.Item>
               <Form.Item
                 label="Mong muốn chụp đến"
@@ -275,7 +286,11 @@ export function NhuCauFormDialog({
                 validateStatus={errors.thoiGianMongMuonDen ? 'error' : undefined}
                 help={errors.thoiGianMongMuonDen?.message}
               >
-                <Input type="datetime-local" {...register('thoiGianMongMuonDen')} />
+                <Input
+                  type="datetime-local"
+                  value={thoiGianMongMuonDenValue}
+                  onChange={(e) => setValue('thoiGianMongMuonDen', e.target.value)}
+                />
               </Form.Item>
             </Flex>
           )}
@@ -285,7 +300,11 @@ export function NhuCauFormDialog({
             validateStatus={errors.doPhanGiai ? 'error' : undefined}
             help={errors.doPhanGiai?.message}
           >
-            <Input placeholder="VD: 0.5m, 1m" {...register('doPhanGiai')} />
+            <Input
+              value={doPhanGiaiValue}
+              onChange={(e) => setValue('doPhanGiai', e.target.value)}
+              placeholder="VD: 0.5m, 1m"
+            />
           </Form.Item>
 
           <Form.Item
@@ -293,7 +312,12 @@ export function NhuCauFormDialog({
             validateStatus={errors.moTa ? 'error' : undefined}
             help={errors.moTa?.message}
           >
-            <Input.TextArea rows={3} placeholder="Mô tả thêm về nhu cầu..." {...register('moTa')} />
+            <Input.TextArea
+              rows={3}
+              value={moTaValue}
+              onChange={(e) => setValue('moTa', e.target.value)}
+              placeholder="Mô tả thêm về nhu cầu..."
+            />
           </Form.Item>
 
           <Flex justify="end" gap="small">

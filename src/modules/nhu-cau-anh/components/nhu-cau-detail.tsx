@@ -44,6 +44,13 @@ const formatDate = (d: Date | string | null | undefined): string => {
   });
 };
 
+const toLocalInput = (d: Date): string => {
+  const tzOffset = d.getTimezoneOffset() * 60000;
+  return new Date(d.getTime() - tzOffset).toISOString().slice(0, 16);
+};
+
+const todayLocalInput = (): string => toLocalInput(new Date());
+
 export function NhuCauDetail() {
   const { notification } = App.useApp();
   const params = useParams<{ id: string }>();
@@ -54,6 +61,7 @@ export function NhuCauDetail() {
 
   const [nextState, setNextState] = useState<TrangThaiNhuCau | undefined>(undefined);
   const [ghiChu, setGhiChu] = useState('');
+  const [thoiGianTra, setThoiGianTra] = useState(todayLocalInput);
 
   if (isLoading) {
     return <LoadingState />;
@@ -74,7 +82,7 @@ export function NhuCauDetail() {
 
   const handleTransition = async () => {
     if (!nextState) {
-      notification.warning({ message: 'Vui lòng chọn trạng thái mới' });
+      notification.warning({ title: 'Vui lòng chọn trạng thái mới' });
       return;
     }
     try {
@@ -82,17 +90,19 @@ export function NhuCauDetail() {
         id,
         input: {
           trangThaiMoi: nextState,
+          ...(nextState === 'DA_NHAN' ? { thoiGianTra: new Date(thoiGianTra) } : {}),
           ghiChu: ghiChu || undefined,
         },
       });
       notification.success({
-        message: `Đã chuyển sang "${TRANG_THAI_NHU_CAU_LABELS[nextState]}"`,
+        title: `Đã chuyển sang "${TRANG_THAI_NHU_CAU_LABELS[nextState]}"`,
       });
       setNextState(undefined);
       setGhiChu('');
+      setThoiGianTra(todayLocalInput());
     } catch (e) {
       notification.error({
-        message: 'Lỗi chuyển trạng thái',
+        title: 'Lỗi chuyển trạng thái',
         description: e instanceof Error ? e.message : undefined,
       });
     }
@@ -155,11 +165,14 @@ export function NhuCauDetail() {
                 </Descriptions.Item>
               </>
             )}
-            <Descriptions.Item label="Thời gian trả ảnh">
+            <Descriptions.Item
+              label="Thời gian trả ảnh"
+              span={data.loaiNhuCau === 'CO_DINH' ? { xs: 1, sm: 2 } : 1}
+            >
               {formatDate(data.thoiGianTra)}
             </Descriptions.Item>
             {data.moTa && (
-              <Descriptions.Item label="Mô tả" span={2}>
+              <Descriptions.Item label="Mô tả" span={{ xs: 1, sm: 2 }}>
                 <Text style={{ whiteSpace: 'pre-wrap' }}>{data.moTa}</Text>
               </Descriptions.Item>
             )}
@@ -200,6 +213,19 @@ export function NhuCauDetail() {
                   style={{ marginTop: 4 }}
                 />
               </div>
+              {nextState === 'DA_NHAN' && (
+                <div>
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    Thời gian nhận ảnh
+                  </Text>
+                  <Input
+                    type="datetime-local"
+                    value={thoiGianTra}
+                    onChange={(e) => setThoiGianTra(e.target.value)}
+                    style={{ width: '100%', marginTop: 4 }}
+                  />
+                </div>
+              )}
               <Button
                 type="primary"
                 block
@@ -228,7 +254,7 @@ export function NhuCauDetail() {
           <Timeline
             items={data.lichSu.map((entry) => ({
               color: TRANG_THAI_TAG_COLOR[entry.trangThaiMoi] === 'default' ? 'gray' : 'blue',
-              children: (
+              content: (
                 <Flex gap={8} align="center" wrap>
                   {entry.trangThaiCu ? (
                     <>

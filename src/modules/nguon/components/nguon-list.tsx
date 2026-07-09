@@ -51,7 +51,7 @@ export function NguonList() {
     if (!ok) return;
     try {
       await deleteMut.mutateAsync(n.id);
-      notification.success({ message: 'Đã xóa nguồn' });
+      notification.success({ title: 'Đã xóa nguồn' });
     } catch (e) {
       notification.error({
         message: 'Không xóa được',
@@ -167,7 +167,12 @@ export function NguonList() {
         )}
       </Card>
 
-      <NguonFormDialog open={open} onOpenChange={setOpen} editing={editing} />
+      <NguonFormDialog
+        key={editing ? `edit-${editing.id}` : 'create'}
+        open={open}
+        onOpenChange={setOpen}
+        editing={editing}
+      />
     </div>
   );
 }

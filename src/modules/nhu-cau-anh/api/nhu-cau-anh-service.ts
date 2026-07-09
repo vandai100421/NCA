@@ -30,15 +30,25 @@ export interface NhuCauListResult {
   pageSize: number;
 }
 
-export async function listNhuCau(query: NhuCauListQuery): Promise<NhuCauListResult> {
-  const { page, pageSize, trangThai, nguonId, mucTieuId, loaiNhuCau, loaiAnhChup, search } = query;
+function parseFilterDate(s: string | undefined, endOfDay = false): Date | undefined {
+  if (!s) return undefined;
+  const d = s.length === 10 && endOfDay ? new Date(`${s}T23:59:59`) : new Date(s);
+  return Number.isNaN(d.getTime()) ? undefined : d;
+}
 
-  const where = {
-    ...(trangThai && { trangThai }),
-    ...(nguonId && { nguonId }),
-    ...(mucTieuId && { mucTieuId }),
-    ...(loaiNhuCau && { loaiNhuCau }),
-    ...(loaiAnhChup && { loaiAnhChup }),
+function buildNhuCauWhere(query: NhuCauListQuery) {
+  const { trangThai, nguonId, mucTieuId, loaiNhuCau, loaiAnhChup, tuNgay, denNgay, search } = query;
+  const tu = parseFilterDate(tuNgay);
+  const den = parseFilterDate(denNgay, true);
+
+  return {
+    ...(trangThai && trangThai.length > 0 ? { trangThai: { in: trangThai } } : {}),
+    ...(nguonId && nguonId.length > 0 ? { nguonId: { in: nguonId } } : {}),
+    ...(mucTieuId && mucTieuId.length > 0 ? { mucTieuId: { in: mucTieuId } } : {}),
+    ...(loaiNhuCau && loaiNhuCau.length > 0 ? { loaiNhuCau: { in: loaiNhuCau } } : {}),
+    ...(loaiAnhChup && loaiAnhChup.length > 0 ? { loaiAnhChup: { in: loaiAnhChup } } : {}),
+    ...(tu && { thoiGianDat: { gte: tu } }),
+    ...(den && { thoiGianDat: { lte: den } }),
     ...(search && {
       OR: [
         { diaBan: { contains: search } },
@@ -49,6 +59,11 @@ export async function listNhuCau(query: NhuCauListQuery): Promise<NhuCauListResu
       ],
     }),
   };
+}
+
+export async function listNhuCau(query: NhuCauListQuery): Promise<NhuCauListResult> {
+  const { page, pageSize } = query;
+  const where = buildNhuCauWhere(query);
 
   const [items, total] = await Promise.all([
     prisma.nhuCauAnh.findMany({
@@ -67,7 +82,7 @@ export async function listNhuCau(query: NhuCauListQuery): Promise<NhuCauListResu
           },
         },
       },
-      orderBy: { id: 'desc' },
+      orderBy: [{ thoiGianDat: 'asc' }, { id: 'asc' }],
       skip: (page - 1) * pageSize,
       take: pageSize,
     }),
@@ -207,7 +222,7 @@ export async function transitionState(
 
   const updateData: Record<string, unknown> = { trangThai: input.trangThaiMoi };
   if (input.trangThaiMoi === 'DA_NHAN') {
-    updateData.thoiGianTra = new Date();
+    updateData.thoiGianTra = input.thoiGianTra ? new Date(input.thoiGianTra) : new Date();
   }
 
   return prisma.$transaction(async (tx) => {
@@ -250,7 +265,7 @@ export async function deleteNhuCau(id: number): Promise<void> {
   }
   if (!isDeletable(existing.trangThai)) {
     throw new ConflictError(
-      `Không thể xóa nhu cầu ở trạng thái "${existing.trangThai}". Chỉ xóa được khi ở trạng thái DA_DAT hoặc FAIL.`,
+      `Không thể xóa nhu cầu ở trạng thái "${existing.trangThai}". Chỉ xóa được khi ở trạng thái DA_DAT hoặc DA_HUY.`,
     );
   }
   await prisma.nhuCauAnh.delete({ where: { id } });
@@ -293,24 +308,7 @@ function formatCsvDate(d: Date | string | null | undefined): string {
 }
 
 export async function exportNhuCauCsv(query: NhuCauListQuery): Promise<string> {
-  const { trangThai, nguonId, mucTieuId, loaiNhuCau, loaiAnhChup, search } = query;
-
-  const where = {
-    ...(trangThai && { trangThai }),
-    ...(nguonId && { nguonId }),
-    ...(mucTieuId && { mucTieuId }),
-    ...(loaiNhuCau && { loaiNhuCau }),
-    ...(loaiAnhChup && { loaiAnhChup }),
-    ...(search && {
-      OR: [
-        { diaBan: { contains: search } },
-        { moTa: { contains: search } },
-        { doPhanGiai: { contains: search } },
-        { mucTieu: { ten: { contains: search } } },
-        { nguon: { tenNguon: { contains: search } } },
-      ],
-    }),
-  };
+  const where = buildNhuCauWhere(query);
 
   const rows = await prisma.nhuCauAnh.findMany({
     where,

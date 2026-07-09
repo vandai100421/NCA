@@ -21,11 +21,10 @@ import {
 } from '@/modules/shared/constants';
 import type { TrangThaiNhuCau } from '@/infrastructure/prisma/generated/client';
 import type { TongQuanStats } from '../api/thong-ke-service';
-import { ThongKeThoiGianPanel } from './thong-ke-thoi-gian-panel';
 
 const { Title, Paragraph, Text } = Typography;
 
-const ALL_TRANG_THAI: TrangThaiNhuCau[] = ['DA_DAT', 'FAIL', 'DA_NHAN'];
+const ALL_TRANG_THAI: TrangThaiNhuCau[] = ['DA_DAT', 'DA_HUY', 'DA_NHAN'];
 
 function StatCard({
   title,
@@ -205,8 +204,6 @@ export function TongQuanDashboard() {
           </Flex>
         )}
       </Card>
-
-      <ThongKeThoiGianPanel />
     </div>
   );
 }

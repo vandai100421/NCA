@@ -3,22 +3,40 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
+import { CalendarOutlined } from '@ant-design/icons';
 import {
-  CalendarOutlined,
-  CheckCircleOutlined,
-  ClockCircleOutlined,
-  WarningOutlined,
-} from '@ant-design/icons';
-import { Button, Card, Col, Empty, Flex, Input, Progress, Row, Table, Tag, Typography } from 'antd';
+  Button,
+  Card,
+  Col,
+  Empty,
+  Flex,
+  Input,
+  Progress,
+  Row,
+  Select,
+  Table,
+  Tag,
+  Typography,
+} from 'antd';
 import type { TableProps } from 'antd';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ErrorState } from '@/components/ui/error-state';
 import { LoadingState } from '@/components/ui/loading-state';
 import { api } from '@/lib/api';
-import { LOAI_NHU_CAU_LABELS, NGUON_LOAI_LABELS } from '@/modules/shared/constants';
-import type { ThongKeThoiGian, ThongKeNguonThoiGian, ChamHanItem } from '../api/thong-ke-service';
+import { useNguonList } from '@/modules/nguon/hooks/use-nguon';
+import {
+  LOAI_ANH_CHUP_LABELS,
+  LOAI_NHU_CAU_LABELS,
+  NGUON_LOAI_LABELS,
+} from '@/modules/shared/constants';
+import type {
+  ThongKeThoiGian,
+  NguonDanhGia,
+  NhuCauTheoLoai,
+  ChamHanItem,
+} from '../api/thong-ke-service';
 
-const { Text } = Typography;
+const { Text, Title } = Typography;
 
 const formatDate = (iso: string): string => {
   const d = new Date(iso);
@@ -30,99 +48,94 @@ const formatDate = (iso: string): string => {
   });
 };
 
-type Tone = 'emerald' | 'amber' | 'slate' | 'blue';
-
-const TONE_STYLE: Record<Tone, { color: string; bg: string }> = {
-  emerald: { color: '#10b981', bg: '#ecfdf5' },
-  amber: { color: '#f59e0b', bg: '#fffbeb' },
-  slate: { color: '#475569', bg: '#f1f5f9' },
-  blue: { color: '#3b82f6', bg: '#eff6ff' },
-};
-
-function StatCard({
-  title,
-  value,
-  hint,
-  icon,
-  tone,
-}: {
-  title: string;
-  value: number | string;
-  hint?: string;
-  icon: React.ReactNode;
-  tone: Tone;
-}) {
-  const t = TONE_STYLE[tone];
+function renderLoaiAnhTags(items: { loaiAnhChup: string; count: number }[]): React.ReactNode {
+  if (items.length === 0) return <Text type="secondary">—</Text>;
   return (
-    <Card>
-      <Flex align="center" gap={16}>
-        <div
-          style={{
-            display: 'flex',
-            width: 44,
-            height: 44,
-            alignItems: 'center',
-            justifyContent: 'center',
-            borderRadius: 8,
-            color: t.color,
-            background: t.bg,
-            fontSize: 20,
-          }}
-        >
-          {icon}
-        </div>
-        <div>
-          <div style={{ fontSize: 24, fontWeight: 700, lineHeight: 1 }}>{value}</div>
-          <Text type="secondary" style={{ fontSize: 12 }}>
-            {title}
+    <Flex gap={4} wrap>
+      {items.map((it) => (
+        <Tag key={it.loaiAnhChup}>
+          {LOAI_ANH_CHUP_LABELS[it.loaiAnhChup as keyof typeof LOAI_ANH_CHUP_LABELS] ??
+            it.loaiAnhChup}
+          : {it.count}
+        </Tag>
+      ))}
+    </Flex>
+  );
+}
+
+function LoaiNhuCauBlock({ data }: { data: NhuCauTheoLoai }) {
+  const label = LOAI_NHU_CAU_LABELS[data.loaiNhuCau];
+  const chuaDenHan = data.tongDat - data.daNhan - data.daHuy;
+  return (
+    <Card size="small" style={{ flex: 1, minWidth: 280 }}>
+      <Flex vertical gap={8}>
+        <Flex justify="space-between" align="center">
+          <Text strong>
+            {label}: {data.tongDat} mục tiêu
           </Text>
-          {hint && (
-            <div>
-              <Text type="secondary" style={{ fontSize: 12 }}>
-                {hint}
-              </Text>
-            </div>
-          )}
+        </Flex>
+        <Flex gap={16} wrap>
+          <Text>
+            Đã nhận: <Text strong>{data.daNhan}</Text>
+          </Text>
+          <Text type="secondary">Đã hủy: {data.daHuy}</Text>
+          <Text type="secondary">Chưa đến hạn: {chuaDenHan}</Text>
+        </Flex>
+        <div>
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            Phân loại ảnh:
+          </Text>
+          <div style={{ marginTop: 4 }}>{renderLoaiAnhTags(data.theoLoaiAnh)}</div>
         </div>
       </Flex>
     </Card>
   );
 }
 
-function NguonRow({ n, maxTong }: { n: ThongKeNguonThoiGian; maxTong: number }) {
-  const tiLeDung = n.tong > 0 ? Math.round((n.dungHan / n.tong) * 100) : 0;
-  const pct = maxTong > 0 ? Math.round((n.tong / maxTong) * 100) : 0;
-  const dungPct = n.tong > 0 ? Math.round((pct * n.dungHan) / n.tong) : 0;
+function NguonDanhGiaCard({ n }: { n: NguonDanhGia }) {
   return (
-    <div>
-      <Flex justify="space-between" style={{ marginBottom: 4 }}>
-        <Flex gap={8} align="center">
-          <Tag>{NGUON_LOAI_LABELS[n.nguon as keyof typeof NGUON_LOAI_LABELS] ?? n.nguon}</Tag>
-          <Text>{n.tenNguon}</Text>
-        </Flex>
-        <Text strong>
-          {n.tong}{' '}
-          <Text type="success" style={{ fontSize: 12, fontWeight: 'normal' }}>
-            ({tiLeDung}% đúng)
+    <Card size="small">
+      <Flex vertical gap={8}>
+        <Flex justify="space-between" align="center">
+          <Flex gap={8} align="center">
+            <Tag>{NGUON_LOAI_LABELS[n.nguon as keyof typeof NGUON_LOAI_LABELS] ?? n.nguon}</Tag>
+            <Text strong>{n.tenNguon}</Text>
+          </Flex>
+          <Text strong>
+            {n.daNhan} ảnh{' '}
+            <Text type="success" style={{ fontSize: 12, fontWeight: 'normal' }}>
+              ({n.tiLeDungHan}% đúng hạn)
+            </Text>
           </Text>
-        </Text>
+        </Flex>
+        <Progress
+          percent={100}
+          success={{ percent: n.tiLeDungHan }}
+          strokeColor="#faad14"
+          showInfo={false}
+          size="small"
+        />
+        <Flex gap={16} wrap>
+          <Text type="success" style={{ fontSize: 12 }}>
+            Đúng hạn: {n.dungHan}
+          </Text>
+          <Text type="warning" style={{ fontSize: 12 }}>
+            Chậm hạn: {n.chamHan}
+          </Text>
+          {n.soNgayTreTrungBinh > 0 && (
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              Trễ trung bình: {n.soNgayTreTrungBinh} ngày
+            </Text>
+          )}
+        </Flex>
+        <div>
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            Loại ảnh đã nhận:
+          </Text>
+          <div style={{ marginTop: 4 }}>{renderLoaiAnhTags(n.theoLoaiAnh)}</div>
+        </div>
       </Flex>
-      <Progress
-        percent={pct}
-        success={{ percent: dungPct }}
-        strokeColor="#faad14"
-        showInfo={false}
-        size="small"
-      />
-      <Flex gap={16}>
-        <Text type="success" style={{ fontSize: 12 }}>
-          Đúng hạn: {n.dungHan}
-        </Text>
-        <Text type="warning" style={{ fontSize: 12 }}>
-          Chậm hạn: {n.chamHan}
-        </Text>
-      </Flex>
-    </div>
+    </Card>
   );
 }
 
@@ -149,10 +162,16 @@ const chamHanColumns: TableProps<ChamHanItem>['columns'] = [
     ),
   },
   {
-    title: 'Loại',
+    title: 'Loại nhu cầu',
     dataIndex: 'loaiNhuCau',
-    width: 100,
+    width: 110,
     render: (v: ChamHanItem['loaiNhuCau']) => <Tag>{LOAI_NHU_CAU_LABELS[v]}</Tag>,
+  },
+  {
+    title: 'Loại ảnh',
+    dataIndex: 'loaiAnhChup',
+    width: 110,
+    render: (v: ChamHanItem['loaiAnhChup']) => <Tag>{LOAI_ANH_CHUP_LABELS[v]}</Tag>,
   },
   {
     title: 'Hạn mong muốn',
@@ -165,7 +184,7 @@ const chamHanColumns: TableProps<ChamHanItem>['columns'] = [
     ),
   },
   {
-    title: 'Ngày trả',
+    title: 'Ngày nhận',
     dataIndex: 'thoiGianTra',
     width: 130,
     render: (v: string) => (
@@ -186,32 +205,46 @@ const chamHanColumns: TableProps<ChamHanItem>['columns'] = [
 export function ThongKeThoiGianPanel() {
   const [tuNgay, setTuNgay] = useState('');
   const [denNgay, setDenNgay] = useState('');
+  const [selectedNguonIds, setSelectedNguonIds] = useState<number[]>([]);
   const [appliedTu, setAppliedTu] = useState('');
   const [appliedDen, setAppliedDen] = useState('');
+  const [appliedNguonIds, setAppliedNguonIds] = useState<number[]>([]);
+
+  const { data: nguonList } = useNguonList();
+  const nguonOptions = (nguonList ?? []).map((n) => ({
+    value: n.id,
+    label: `${n.tenNguon} (${n.nguon})`,
+  }));
 
   const params = new URLSearchParams();
   if (appliedTu) params.set('tuNgay', appliedTu);
   if (appliedDen) params.set('denNgay', appliedDen);
+  if (appliedNguonIds.length > 0) {
+    params.set('nguonIds', appliedNguonIds.join(','));
+  }
   const qs = params.toString();
 
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ['thong-ke', 'thoi-gian', appliedTu, appliedDen] as const,
+    queryKey: ['thong-ke', 'thoi-gian', appliedTu, appliedDen, appliedNguonIds] as const,
     queryFn: () => api.get<ThongKeThoiGian>(`/api/thong-ke/thoi-gian${qs ? `?${qs}` : ''}`),
   });
 
   const handleApply = () => {
     setAppliedTu(tuNgay);
     setAppliedDen(denNgay);
+    setAppliedNguonIds(selectedNguonIds);
   };
 
   const handleReset = () => {
     setTuNgay('');
     setDenNgay('');
+    setSelectedNguonIds([]);
     setAppliedTu('');
     setAppliedDen('');
+    setAppliedNguonIds([]);
   };
 
-  const maxTong = data ? data.theoNguon.reduce((max, n) => Math.max(max, n.tong), 0) : 0;
+  const hasFilter = appliedTu || appliedDen || appliedNguonIds.length > 0;
 
   return (
     <Card
@@ -246,10 +279,24 @@ export function ThongKeThoiGianPanel() {
               style={{ width: 180, display: 'block', marginTop: 4 }}
             />
           </div>
+          <div style={{ minWidth: 240 }}>
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              Nguồn
+            </Text>
+            <Select
+              mode="multiple"
+              allowClear
+              placeholder="Tất cả nguồn"
+              value={selectedNguonIds}
+              onChange={(v) => setSelectedNguonIds(v)}
+              options={nguonOptions}
+              style={{ display: 'block', marginTop: 4 }}
+            />
+          </div>
           <Button type="primary" onClick={handleApply}>
             Áp dụng
           </Button>
-          {(appliedTu || appliedDen) && <Button onClick={handleReset}>Xoá lọc</Button>}
+          {hasFilter && <Button onClick={handleReset}>Xoá lọc</Button>}
         </Flex>
 
         {isLoading ? (
@@ -261,84 +308,126 @@ export function ThongKeThoiGianPanel() {
           />
         ) : !data ? (
           <EmptyState title="Chưa có dữ liệu" />
-        ) : data.tongDaTraAnh === 0 ? (
+        ) : data.tongNhuCau === 0 ? (
           <EmptyState
-            title="Chưa có nhu cầu nào đã trả ảnh"
-            description="Thống kê đúng/chậm hạn chỉ áp dụng cho nhu cầu đã trả ảnh."
+            title="Chưa có nhu cầu nào trong khoảng thời gian này"
+            description="Chọn khoảng thời gian khác hoặc tạo nhu cầu mới."
           />
         ) : (
           <>
-            <Row gutter={[16, 16]}>
+            {/* Tổng quan nhanh */}
+            <Row gutter={[12, 12]}>
               <Col xs={12} md={6}>
-                <StatCard
-                  title="Đã trả ảnh"
-                  value={data.tongDaTraAnh}
-                  icon={<CheckCircleOutlined />}
-                  tone="blue"
-                />
+                <Card size="small">
+                  <Statistic label="Tổng nhu cầu" value={data.tongNhuCau} />
+                </Card>
               </Col>
               <Col xs={12} md={6}>
-                <StatCard
-                  title="Đúng hạn"
-                  value={data.dungHan}
-                  hint={`${data.tiLeDungHan}% tổng số`}
-                  icon={<CheckCircleOutlined />}
-                  tone="emerald"
-                />
+                <Card size="small">
+                  <Statistic label="Đã nhận ảnh" value={data.tongDaNhan} tone="blue" />
+                </Card>
               </Col>
               <Col xs={12} md={6}>
-                <StatCard
-                  title="Chậm hạn"
-                  value={data.chamHan}
-                  hint={`${100 - data.tiLeDungHan}% tổng số`}
-                  icon={<WarningOutlined />}
-                  tone="amber"
-                />
+                <Card size="small">
+                  <Statistic
+                    label="Đúng hạn"
+                    value={data.tongDungHan}
+                    hint={`${data.tiLeDungHan}%`}
+                    tone="green"
+                  />
+                </Card>
               </Col>
               <Col xs={12} md={6}>
-                <StatCard
-                  title="Tỷ lệ đúng hạn"
-                  value={`${data.tiLeDungHan}%`}
-                  icon={<ClockCircleOutlined />}
-                  tone="slate"
-                />
+                <Card size="small">
+                  <Statistic label="Chậm hạn" value={data.tongChamHan} tone="amber" />
+                </Card>
               </Col>
             </Row>
 
+            {/* Theo loại nhu cầu */}
             <div>
-              <Text strong>Phân loại theo nguồn</Text>
-              <div style={{ marginTop: 12 }}>
-                {data.theoNguon.length === 0 ? (
-                  <Empty description="Chưa có dữ liệu theo nguồn." />
-                ) : (
-                  <Flex vertical gap={16}>
-                    {data.theoNguon.map((n) => (
-                      <NguonRow key={n.nguonId} n={n} maxTong={maxTong} />
-                    ))}
-                  </Flex>
-                )}
-              </div>
+              <Title level={5} style={{ margin: '0 0 8px 0' }}>
+                Theo loại nhu cầu
+              </Title>
+              <Flex gap={12} wrap>
+                {data.theoLoaiNhuCau.map((loai) => (
+                  <LoaiNhuCauBlock key={loai.loaiNhuCau} data={loai} />
+                ))}
+              </Flex>
             </div>
 
+            {/* Đánh giá theo nguồn */}
             <div>
-              <Text strong>Danh sách nhu cầu chậm hạn ({data.danhSachChamHan.length})</Text>
-              <div style={{ marginTop: 12 }}>
-                {data.danhSachChamHan.length === 0 ? (
-                  <Text type="success">Không có nhu cầu nào chậm hạn. Tuyệt vời!</Text>
-                ) : (
-                  <Table<ChamHanItem>
-                    rowKey="id"
-                    columns={chamHanColumns}
-                    dataSource={data.danhSachChamHan}
-                    pagination={false}
-                    size="small"
-                  />
-                )}
-              </div>
+              <Title level={5} style={{ margin: '0 0 8px 0' }}>
+                Đánh giá theo nguồn ({data.theoNguon.length})
+              </Title>
+              {data.theoNguon.length === 0 ? (
+                <Empty description="Chưa có nguồn nào đã nhận ảnh." />
+              ) : (
+                <Row gutter={[12, 12]}>
+                  {data.theoNguon.map((n) => (
+                    <Col key={n.nguonId} xs={24} md={12} lg={8}>
+                      <NguonDanhGiaCard n={n} />
+                    </Col>
+                  ))}
+                </Row>
+              )}
+            </div>
+
+            {/* Danh sách chậm hạn */}
+            <div>
+              <Title level={5} style={{ margin: '0 0 8px 0' }}>
+                Danh sách nhu cầu chậm hạn ({data.danhSachChamHan.length})
+              </Title>
+              {data.danhSachChamHan.length === 0 ? (
+                <Text type="success">Không có nhu cầu nào chậm hạn. Tuyệt vời!</Text>
+              ) : (
+                <Table<ChamHanItem>
+                  rowKey="id"
+                  columns={chamHanColumns}
+                  dataSource={data.danhSachChamHan}
+                  pagination={{ pageSize: 10, showSizeChanger: true }}
+                  size="small"
+                />
+              )}
             </div>
           </>
         )}
       </Flex>
     </Card>
+  );
+}
+
+function Statistic({
+  label,
+  value,
+  hint,
+  tone,
+}: {
+  label: string;
+  value: number | string;
+  hint?: string;
+  tone?: 'blue' | 'green' | 'amber';
+}) {
+  const color =
+    tone === 'blue'
+      ? '#3b82f6'
+      : tone === 'green'
+        ? '#10b981'
+        : tone === 'amber'
+          ? '#f59e0b'
+          : '#475569';
+  return (
+    <Flex vertical gap={2}>
+      <div style={{ fontSize: 24, fontWeight: 700, color, lineHeight: 1 }}>{value}</div>
+      <Text type="secondary" style={{ fontSize: 12 }}>
+        {label}
+      </Text>
+      {hint && (
+        <Text type="secondary" style={{ fontSize: 12 }}>
+          {hint}
+        </Text>
+      )}
+    </Flex>
   );
 }
