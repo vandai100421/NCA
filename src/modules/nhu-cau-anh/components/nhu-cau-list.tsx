@@ -37,6 +37,7 @@ import {
   PAGE_SIZE_OPTIONS,
   TRANG_THAI_NHU_CAU_LABELS,
   TRANG_THAI_TAG_COLOR,
+  getNguonTagColor,
 } from '@/modules/shared/constants';
 import type {
   LoaiAnhChup,
@@ -193,13 +194,7 @@ export function NhuCauList() {
       ellipsis: true,
       render: (_, n) => (
         <Flex gap={6} align="center" wrap>
-          <Tag>
-            {n.nguon.tenNguon}
-            {/* {NGUON_LOAI_LABELS[n.nguon.nguon as keyof typeof NGUON_LOAI_LABELS] ?? n.nguon.nguon} */}
-          </Tag>
-          {/* <Text type="secondary" style={{ fontSize: 12 }}>
-            {n.nguon.tenNguon}
-          </Text> */}
+          <Tag color={getNguonTagColor(n.nguon.id)}>{n.nguon.tenNguon}</Tag>
         </Flex>
       ),
     },

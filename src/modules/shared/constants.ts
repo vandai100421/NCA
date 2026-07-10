@@ -55,3 +55,20 @@ export const TINH_TRANG_TAG_COLOR: Record<TinhTrangNguon, string> = {
   BAO_TRI: 'gold',
   NGUNG_HOAT_DONG: 'red',
 };
+
+const NGUON_TAG_PALETTE = [
+  'blue',
+  'green',
+  'magenta',
+  'orange',
+  'cyan',
+  'purple',
+  'gold',
+  'volcano',
+  'geekblue',
+  'lime',
+] as const;
+
+export function getNguonTagColor(id: number): string {
+  return NGUON_TAG_PALETTE[id % NGUON_TAG_PALETTE.length] ?? 'blue';
+}

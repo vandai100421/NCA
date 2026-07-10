@@ -1,3 +1,4 @@
+import { parseFilterDate } from '@/lib/date';
 import { prisma } from '@/lib/db';
 import { ConflictError, NotFoundError, StateTransitionError, ValidationError } from '@/lib/errors';
 import type { NhuCauAnh, TrangThaiNhuCau } from '@/infrastructure/prisma/generated/client';
@@ -30,16 +31,13 @@ export interface NhuCauListResult {
   pageSize: number;
 }
 
-function parseFilterDate(s: string | undefined, endOfDay = false): Date | undefined {
-  if (!s) return undefined;
-  const d = s.length === 10 && endOfDay ? new Date(`${s}T23:59:59`) : new Date(s);
-  return Number.isNaN(d.getTime()) ? undefined : d;
-}
-
 function buildNhuCauWhere(query: NhuCauListQuery) {
   const { trangThai, nguonId, mucTieuId, loaiNhuCau, loaiAnhChup, tuNgay, denNgay, search } = query;
   const tu = parseFilterDate(tuNgay);
   const den = parseFilterDate(denNgay, true);
+  const thoiGianDatFilter: { gte?: Date; lte?: Date } = {};
+  if (tu) thoiGianDatFilter.gte = tu;
+  if (den) thoiGianDatFilter.lte = den;
 
   return {
     ...(trangThai && trangThai.length > 0 ? { trangThai: { in: trangThai } } : {}),
@@ -47,8 +45,7 @@ function buildNhuCauWhere(query: NhuCauListQuery) {
     ...(mucTieuId && mucTieuId.length > 0 ? { mucTieuId: { in: mucTieuId } } : {}),
     ...(loaiNhuCau && loaiNhuCau.length > 0 ? { loaiNhuCau: { in: loaiNhuCau } } : {}),
     ...(loaiAnhChup && loaiAnhChup.length > 0 ? { loaiAnhChup: { in: loaiAnhChup } } : {}),
-    ...(tu && { thoiGianDat: { gte: tu } }),
-    ...(den && { thoiGianDat: { lte: den } }),
+    ...(Object.keys(thoiGianDatFilter).length > 0 && { thoiGianDat: thoiGianDatFilter }),
     ...(search && {
       OR: [
         { diaBan: { contains: search } },

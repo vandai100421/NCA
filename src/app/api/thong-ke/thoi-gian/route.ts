@@ -5,8 +5,8 @@ import { handleRouteError } from '@/lib/route-handler';
 import { getThongKeThoiGian } from '@/modules/thong-ke/api/thong-ke-service';
 
 const querySchema = z.object({
-  tuNgay: z.coerce.date().optional(),
-  denNgay: z.coerce.date().optional(),
+  tuNgay: z.string().optional(),
+  denNgay: z.string().optional(),
   nguonIds: z
     .string()
     .optional()

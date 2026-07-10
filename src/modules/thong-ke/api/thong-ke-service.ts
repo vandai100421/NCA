@@ -1,3 +1,4 @@
+import { parseFilterDate } from '@/lib/date';
 import { prisma } from '@/lib/db';
 import type {
   LoaiAnhChup,
@@ -147,14 +148,18 @@ function getHan(n: {
 }
 
 export async function getThongKeThoiGian(
-  tuNgay?: Date,
-  denNgay?: Date,
+  tuNgay?: string,
+  denNgay?: string,
   nguonIds?: number[],
 ): Promise<ThongKeThoiGian> {
   // Query theo thoiGianDat (nhu cầu được đặt trong khoảng thời gian)
+  const tu = parseFilterDate(tuNgay);
+  const den = parseFilterDate(denNgay, true);
+  const thoiGianDatFilter: { gte?: Date; lte?: Date } = {};
+  if (tu) thoiGianDatFilter.gte = tu;
+  if (den) thoiGianDatFilter.lte = den;
   const where = {
-    ...(tuNgay && { thoiGianDat: { gte: tuNgay } }),
-    ...(denNgay && { thoiGianDat: { lte: denNgay } }),
+    ...(Object.keys(thoiGianDatFilter).length > 0 && { thoiGianDat: thoiGianDatFilter }),
     ...(nguonIds && nguonIds.length > 0 ? { nguonId: { in: nguonIds } } : {}),
   };
 
