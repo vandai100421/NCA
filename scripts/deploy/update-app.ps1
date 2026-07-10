@@ -1,18 +1,18 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-    Cap nhat NCA: stop service -> pull -> rebuild -> start service.
+    Cap nhat NCA: stop process -> pull -> rebuild -> start process.
 .DESCRIPTION
     Workflow cap nhat khi co code moi:
-      1. Stop NCA service
+      1. Stop NCA process (pm2)
       2. git pull
       3. npm ci (neu package-lock thay doi)
       4. npx prisma generate (neu schema thay doi)
       5. npx prisma migrate deploy (neu co migration moi)
       6. npm run build
-      7. Start NCA service
+      7. Start NCA process (pm2)
 .PARAMETER ServiceName
-    Ten service nssm (mac dinh NCA).
+    Ten process pm2 (mac dinh NCA).
 .EXAMPLE
     .\scripts\deploy\update-app.ps1
     .\scripts\deploy\update-app.ps1 -ServiceName "NCA-Prod"
@@ -28,25 +28,13 @@ Set-Location $projectRoot
 
 function Step($msg) { Write-Host "`n=== $msg ===" -ForegroundColor Cyan }
 
-# --- 0. Kiem tra nssm ---
-$nssm = Get-Command nssm -ErrorAction SilentlyContinue
-if (-not $nssm) {
-    $nssmPath = 'C:\nssm\nssm.exe'
-    if (Test-Path $nssmPath) {
-        $nssm = $nssmPath
-    } else {
-        Write-Error 'Khong tim thay nssm. Khong the quan ly service.'
-        exit 1
-    }
-} else {
-    $nssm = $nssm.Source
+# --- 1. Stop process ---
+Step "1. Stop process '$ServiceName'"
+pm2 stop $ServiceName 2>$null
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "Process '$ServiceName' khong dang chay, bo qua." -ForegroundColor Yellow
 }
-
-# --- 1. Stop service ---
-Step "1. Stop service '$ServiceName'"
-& $nssm stop $ServiceName 2>$null
-Start-Sleep -Seconds 3
-Write-Host 'Service da stop.' -ForegroundColor Green
+Write-Host 'Process da stop.' -ForegroundColor Green
 
 # --- 2. git pull ---
 Step '2. git pull'
@@ -73,12 +61,15 @@ Step '6. npm run build'
 npm run build
 if ($LASTEXITCODE -ne 0) { Write-Error 'build that bai.'; exit 1 }
 
-# --- 7. Start service ---
-Step "7. Start service '$ServiceName'"
-& $nssm start $ServiceName
-Start-Sleep -Seconds 3
-$status = & $nssm status $ServiceName
-Write-Host "Trang thai: $status" -ForegroundColor Green
+# --- 7. Start process ---
+Step "7. Start process '$ServiceName'"
+pm2 restart $ServiceName 2>$null
+if ($LASTEXITCODE -ne 0) {
+    Write-Host 'Process chua ton tai, tao moi...' -ForegroundColor Yellow
+    pm2 start npm --name $ServiceName -- run start
+    pm2 save
+}
+pm2 status
 
 Step 'HOAN THANH'
 Write-Host 'Cap nhat xong.' -ForegroundColor Green

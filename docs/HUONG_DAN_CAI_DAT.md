@@ -25,7 +25,7 @@
 ```
 [Máy server nội bộ — Windows]
   ├── NCA app (Next.js, port 3000)
-  │     └── Windows Service (nssm) — tự bật khi khởi động máy, tự restart khi crash
+  │     └── pm2 process — tự bật khi khởi động máy, tự restart khi crash
   ├── prod.db (SQLite) — cơ sở dữ liệu production
   ├── backup/prod-*.db — backup tự động hằng ngày
   └── logs/out.log, err.log — file log
@@ -36,12 +36,13 @@
 
 ### Thông tin hệ thống
 
-| Thông tin     | Giá trị                                 |
-| ------------- | --------------------------------------- |
-| Repo GitHub   | https://github.com/vandai100421/NCA.git |
-| Cổng mặc định | 3000                                    |
-| Database      | SQLite (file `prod.db`)                 |
-| Hệ điều hành  | Windows 10/11 hoặc Windows Server       |
+| Thông tin       | Giá trị                                     |
+| --------------- | ------------------------------------------- |
+| Repo GitHub     | https://github.com/vandai100421/NCA.git     |
+| Cổng mặc định   | 3000                                        |
+| Database        | SQLite (file `prod.db`)                     |
+| Hệ điều hành    | Windows 10/11 hoặc Windows Server           |
+| Process manager | pm2 (cài qua npm, không cần tải file ngoài) |
 
 ---
 
@@ -53,9 +54,10 @@
 | -------- | -------------------------- | -------------------------------- | -------------------------- |
 | Node.js  | 20.9+ (khuyến nghị 22 LTS) | https://nodejs.org               | Chọn bản LTS (Even number) |
 | Git      | bất kỳ                     | https://git-scm.com/download/win | Để clone và pull code      |
-| nssm     | 2.24                       | https://nssm.cc/download         | Quản lý Windows Service    |
 
 > **Lưu ý**: Nếu dùng Node.js 24, có thể gặp lỗi khi cài `better-sqlite3` (thiếu prebuilt binary). Khuyến nghị dùng **Node.js 22 LTS** để né lỗi.
+>
+> **pm2** (process manager) được cài tự động bởi script ở Bước 5 — không cần tải trước.
 
 ### 2.2. Cài Node.js
 
@@ -81,22 +83,6 @@ npm -v
 ```powershell
 git --version
 # Kết quả mong đợi: git version 2.x.x
-```
-
-### 2.4. Cài nssm
-
-1. Vào https://nssm.cc/download
-2. Tải `nssm-2.24.zip`
-3. Giải nén, copy file `nssm.exe` (trong thư mục `win64`) vào `C:\nssm\nssm.exe`
-4. Thêm `C:\nssm` vào PATH:
-   - Mở **Start** → gõ "Environment Variables" → chọn "Edit the system environment variables"
-   - Click **Environment Variables...**
-   - Trong "System variables", tìm `Path` → **Edit** → **New** → gõ `C:\nssm` → **OK** hết
-5. Đóng và mở lại PowerShell, kiểm tra:
-
-```powershell
-nssm version
-# Kết quả mong đợi: 2.24
 ```
 
 ---
@@ -217,7 +203,7 @@ Nhấn **Ctrl + C** trong PowerShell để dừng.
 
 ## 5. Cài đặt service tự khởi động
 
-Bước này cài NCA như **Windows Service** — tự chạy khi máy bật, tự restart khi crash, không cần mở terminal.
+Bước này cài NCA như **service** dùng **pm2** — tự chạy khi máy bật, tự restart khi crash, không cần mở terminal. pm2 được cài qua npm (không cần tải file ngoài).
 
 ### 5.1. Mở PowerShell as Administrator
 
@@ -233,12 +219,14 @@ cd C:\NCA
 
 Script tự động:
 
-1. Tạo Windows Service tên **NCA** chạy `npm run start`
-2. Cấu hình tự khởi động khi máy bật (`SERVICE_AUTO_START`)
-3. Tự restart nếu crash (delay 5 giây)
-4. Redirect log ra `logs\out.log` và `logs\err.log`
-5. Mở firewall port 3000 cho mạng nội bộ
-6. Khởi động service và hiển thị địa chỉ truy cập
+1. Cài `pm2` + `pm2-windows-startup` toàn cục (qua npm)
+2. Cài auto-startup (tạo Windows Service "pm2" tự bật khi máy boot)
+3. Tạo process tên **NCA** chạy `npm run start`
+4. Cấu hình tự restart khi crash
+5. Redirect log ra `logs\out.log` và `logs\err.log`
+6. Mở firewall port 3000 cho mạng nội bộ
+7. Lưu process list (`pm2 save`) để khôi phục khi reboot
+8. Hiển thị địa chỉ truy cập
 
 ### 5.3. Kết quả mong đợi
 
@@ -247,7 +235,7 @@ Script tự động:
   http://192.168.1.50:3000
 
 === HOAN THANH ===
-Service 'NCA' da cai.
+Process 'NCA' da cai voi pm2.
 ```
 
 Các máy trong công ty giờ có thể truy cập `http://192.168.1.50:3000` (thay IP bằng IP thực tế).
@@ -304,13 +292,13 @@ cd C:\NCA
 
 Script tự động:
 
-1. Dừng service NCA
+1. Dừng process NCA (pm2)
 2. Pull code mới từ GitHub
 3. Cài lại thư viện nếu cần (`npm ci`)
 4. Generate Prisma client nếu schema thay đổi
 5. Áp dụng migration mới nếu có
 6. Build lại production
-7. Khởi động lại service
+7. Khởi động lại process NCA (pm2)
 
 Quá trình mất 2-5 phút, web tạm thời không truy cập được trong lúc update.
 
@@ -321,19 +309,25 @@ Quá trình mất 2-5 phút, web tạm thời không truy cập được trong l
 Mở **PowerShell** và chạy:
 
 ```powershell
-# Xem trạng thái service
-nssm status NCA
+# Xem trạng thái tất cả process
+pm2 status
 
-# Dừng service
-nssm stop NCA
+# Dừng process NCA
+pm2 stop NCA
 
-# Khởi động service
-nssm start NCA
+# Khởi động process NCA
+pm2 start NCA
 
-# Khởi động lại service
-nssm restart NCA
+# Khởi động lại process NCA
+pm2 restart NCA
 
-# Xem log mới nhất (50 dòng cuối)
+# Xem log realtime
+pm2 logs NCA
+
+# Xem log 50 dòng cuối
+pm2 logs NCA --lines 50
+
+# Xem file log trực tiếp
 Get-Content C:\NCA\logs\out.log -Tail 50
 Get-Content C:\NCA\logs\err.log -Tail 50
 
@@ -346,8 +340,9 @@ npx prisma studio
 cd C:\NCA
 .\scripts\deploy\backup-db.ps1
 
-# Gỡ service (khi không dùng nữa)
-nssm remove NCA confirm
+# Xóa process (khi không dùng nữa)
+pm2 delete NCA
+pm2 save
 ```
 
 ---
@@ -358,10 +353,10 @@ nssm remove NCA confirm
 
 ```powershell
 # Xem log lỗi
-Get-Content C:\NCA\logs\err.log -Tail 50
+pm2 logs NCA --lines 50
 
-# Chạy thử ngoài service để thấy lỗi trực tiếp
-nssm stop NCA
+# Chạy thử ngoài pm2 để thấy lỗi trực tiếp
+pm2 stop NCA
 cd C:\NCA
 npm run start
 ```
@@ -370,11 +365,11 @@ npm run start
 
 Kiểm tra theo thứ tự:
 
-1. **Service đang chạy?**
+1. **Process đang chạy?**
 
    ```powershell
-   nssm status NCA
-   # Phải là: SERVICE_RUNNING
+   pm2 status
+   # Trạng thái phải là: online
    ```
 
 2. **Firewall đã mở port 3000?**
@@ -398,35 +393,44 @@ Kiểm tra theo thứ tự:
 ### 9.3. Database bị lỗi / cần khôi phục
 
 ```powershell
-# Dừng service
-nssm stop NCA
+# Dừng process
+pm2 stop NCA
 
 # Khôi phục từ backup (đổi tên file theo thực tế)
 Copy-Item .\backup\prod-20260710-020000.db .\prod.db -Force
 
 # Khởi động lại
-nssm start NCA
+pm2 start NCA
 ```
 
 ### 9.4. Đổi port
 
 ```powershell
 # As Administrator
-nssm stop NCA
-nssm set NCA AppEnvironmentExtra NODE_ENV=production PORT=8080
+pm2 stop NCA
+pm2 delete NCA
+$env:PORT = "8080"
+pm2 start npm --name NCA -- run start
+pm2 save
 
 # Mở firewall port mới
 New-NetFirewallRule -DisplayName "NCA Web (port 8080)" -Direction Inbound -Protocol TCP -LocalPort 8080 -Action Allow -Profile Domain,Private
-
-nssm start NCA
 ```
 
-### 9.5. Cài lại từ đầu
+### 9.5. pm2 không tự khởi động lại sau khi restart máy
 
 ```powershell
 # As Administrator
-nssm stop NCA
-nssm remove NCA confirm
+pm2-startup install
+pm2 resurrect
+```
+
+### 9.6. Cài lại từ đầu
+
+```powershell
+# As Administrator
+pm2 delete NCA
+pm2 save
 
 # Xóa DB cũ (CẨN THẬN — mất toàn bộ dữ liệu)
 Remove-Item .\prod.db
@@ -443,7 +447,7 @@ Remove-Item .\prod.db
 ```powershell
 # === CÀI ĐẶT LẦN ĐẦU (trên máy server mới) ===
 
-# 1. Cài Node.js 22 LTS + Git + nssm (xem Mục 2)
+# 1. Cài Node.js 22 LTS + Git (xem Mục 2)
 
 # 2. Clone code
 cd C:\
