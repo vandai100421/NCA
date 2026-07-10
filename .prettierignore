@@ -6,3 +6,4 @@ coverage
 package-lock.json
 *.min.*
 prisma/migrations
+scripts/deploy/*.ps1

@@ -63,3 +63,15 @@ Trạng thái: **xong**
 - [x] Empty / loading / error states nhất quán — (med) — sprint: S3
 - [x] Vitest cho service layer (schema validation + state transition) — (med) — sprint: S3
 - [x] Thêm typecheck vào prebuild — (low) — sprint: S3
+
+## S4 — Deploy máy nội bộ (LAN)
+
+Trạng thái: **xong**
+
+- [x] Verify production build (`npm run build`) — (high) — sprint: S4
+- [x] Script `install.ps1` (npm ci + prisma generate + migrate deploy + seed + build) — (high) — sprint: S4
+- [x] Script `setup-service.ps1` (nssm Windows Service + auto-start + auto-restart + firewall) — (high) — sprint: S4
+- [x] Script `backup-db.ps1` (backup prod.db, giữ N bản) — (med) — sprint: S4
+- [x] Script `update-app.ps1` (stop → pull → ci → generate → migrate → build → start) — (med) — sprint: S4
+- [x] DEPLOY.md hướng dẫn triển khai từng bước — (high) — sprint: S4
+- [x] Thêm `*.ps1` vào .prettierignore — (low) — sprint: S4
