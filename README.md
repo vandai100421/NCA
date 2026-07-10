@@ -87,7 +87,10 @@ Sau khi seed, DB có sẵn:
 - `ARCHITECTURE.md` — kiến trúc, data model, routes, state machine
 - `CODING_STANDARDS.md` — quy ước code (TS, Prettier, ESLint, đặt tên)
 - `DEVELOPMENT_RULES.md` — quy trình sprint, định nghĩa Done, pre-commit
-- `TASKS.md` — tiến độ sprint (S0–S3)
+- `TASKS.md` — tiến độ sprint (S0–S4)
+- `DEPLOY.md` — triển khai trên máy nội bộ có mạng (pm2)
+- `docs/HUONG_DAN_CAI_DAT.md` — hướng dẫn cài đặt chi tiết (có mạng)
+- `docs/HUONG_DAN_OFFLINE.md` — hướng dẫn triển khai offline (không mạng, dùng USB)
 - `docs/handoff/` — báo cáo bàn giao giữa các sprint
 - `prompts/` — template prompt cho sprint + resume pattern
 

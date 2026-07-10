@@ -7,3 +7,4 @@ package-lock.json
 *.min.*
 prisma/migrations
 scripts/deploy/*.ps1
+NCA-offline

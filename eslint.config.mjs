@@ -27,6 +27,7 @@ const eslintConfig = defineConfig([
   },
   globalIgnores([
     '.next/**',
+    'NCA-offline/**',
     'out/**',
     'build/**',
     'next-env.d.ts',
