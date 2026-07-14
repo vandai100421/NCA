@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import type { ApiResponse } from '@/lib/errors';
 import type {
   NhuCauAnhDetail,
   NhuCauListResult,
@@ -12,6 +13,7 @@ import type {
   TransitionInput,
   UpdateNhuCauInput,
 } from '../schema/nhu-cau-anh-schema';
+import type { NhuCauImportResult } from '../schema/nhu-cau-import-schema';
 
 const KEY = ['nhu-cau-anh'] as const;
 const KEY_DETAIL = ['nhu-cau-anh', 'detail'] as const;
@@ -86,6 +88,25 @@ export function useDeleteNhuCau() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: number) => api.delete(`/api/nhu-cau-anh/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: KEY });
+    },
+  });
+}
+
+export function useImportNhuCau() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await fetch('/api/nhu-cau-anh/import', { method: 'POST', body: formData });
+      const body = (await res.json()) as ApiResponse<NhuCauImportResult>;
+      if (!body.success) {
+        throw new Error(body.error?.message ?? 'Lỗi không xác định');
+      }
+      return body.data as NhuCauImportResult;
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: KEY });
     },

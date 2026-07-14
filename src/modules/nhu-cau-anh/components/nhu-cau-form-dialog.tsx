@@ -61,6 +61,7 @@ export function NhuCauFormDialog({
       loaiAnhChup: editing?.loaiAnhChup ?? 'QUANG_HOC',
       toaDoX: editing ? String(editing.toaDoX) : '',
       toaDoY: editing ? String(editing.toaDoY) : '',
+      thoiGianDat: toLocalInput(editing?.thoiGianDat),
       thoiGianChup: toLocalInput(editing?.thoiGianChup),
       thoiGianMongMuonTu: toLocalInput(editing?.thoiGianMongMuonTu),
       thoiGianMongMuonDen: toLocalInput(editing?.thoiGianMongMuonDen),
@@ -76,6 +77,7 @@ export function NhuCauFormDialog({
   const diaBanValue = useWatch({ control, name: 'diaBan' });
   const toaDoXValue = useWatch({ control, name: 'toaDoX' });
   const toaDoYValue = useWatch({ control, name: 'toaDoY' });
+  const thoiGianDatValue = useWatch({ control, name: 'thoiGianDat' });
   const thoiGianChupValue = useWatch({ control, name: 'thoiGianChup' });
   const thoiGianMongMuonTuValue = useWatch({ control, name: 'thoiGianMongMuonTu' });
   const thoiGianMongMuonDenValue = useWatch({ control, name: 'thoiGianMongMuonDen' });
@@ -90,6 +92,10 @@ export function NhuCauFormDialog({
       loaiAnhChup: values.loaiAnhChup,
       toaDoX: Number(values.toaDoX),
       toaDoY: Number(values.toaDoY),
+      thoiGianDat:
+        values.thoiGianDat && values.thoiGianDat.length > 0
+          ? new Date(values.thoiGianDat)
+          : undefined,
       doPhanGiai: values.doPhanGiai,
       moTa: values.moTa && values.moTa.length > 0 ? values.moTa : undefined,
     };
@@ -253,6 +259,18 @@ export function NhuCauFormDialog({
               />
             </Form.Item>
           </Flex>
+
+          <Form.Item
+            label="Thời gian đặt"
+            validateStatus={errors.thoiGianDat ? 'error' : undefined}
+            help={errors.thoiGianDat?.message ?? 'Bỏ trống để lấy thời điểm hiện tại'}
+          >
+            <Input
+              type="datetime-local"
+              value={thoiGianDatValue}
+              onChange={(e) => setValue('thoiGianDat', e.target.value)}
+            />
+          </Form.Item>
 
           {loaiNhuCauValue === 'CO_DINH' ? (
             <Form.Item

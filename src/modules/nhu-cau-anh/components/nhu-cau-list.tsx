@@ -23,6 +23,7 @@ import {
   EditOutlined,
   EyeOutlined,
   PlusOutlined,
+  UploadOutlined,
 } from '@ant-design/icons';
 import type { TableProps } from 'antd';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -46,6 +47,7 @@ import type {
 } from '@/infrastructure/prisma/generated/client';
 import { useNhuCauList, useDeleteNhuCau } from '../hooks/use-nhu-cau-anh';
 import { NhuCauFormDialog } from './nhu-cau-form-dialog';
+import { NhuCauImportDialog } from './nhu-cau-import-dialog';
 import { ThongKeThoiGianPanel } from '@/modules/thong-ke/components/thong-ke-thoi-gian-panel';
 import type { NhuCauAnhDetail } from '../api/nhu-cau-anh-service';
 
@@ -78,6 +80,7 @@ export function NhuCauList() {
   const [search, setSearch] = useState('');
 
   const [open, setOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [editing, setEditing] = useState<NhuCauAnhDetail | null>(null);
   const deleteMut = useDeleteNhuCau();
 
@@ -189,6 +192,11 @@ export function NhuCauList() {
     },
     { title: 'Mục tiêu', dataIndex: ['mucTieu', 'ten'], ellipsis: true },
     {
+      title: 'Địa bàn',
+      dataIndex: 'diaBan',
+      ellipsis: true,
+    },
+    {
       title: 'Nguồn',
       dataIndex: ['nguon', 'tenNguon'],
       ellipsis: true,
@@ -210,11 +218,7 @@ export function NhuCauList() {
       width: 110,
       render: (v: LoaiAnhChup) => <Tag>{LOAI_ANH_CHUP_LABELS[v]}</Tag>,
     },
-    {
-      title: 'Địa bàn',
-      dataIndex: 'diaBan',
-      ellipsis: true,
-    },
+
     {
       title: 'Ngày nhận mong muốn',
       key: 'mongMuon',
@@ -311,6 +315,9 @@ export function NhuCauList() {
             disabled={isLoading || !!error}
           >
             Export CSV
+          </Button>
+          <Button icon={<UploadOutlined />} onClick={() => setImportOpen(true)}>
+            Import
           </Button>
           <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
             Thêm nhu cầu
@@ -514,6 +521,8 @@ export function NhuCauList() {
         mucTieuList={mucTieuData ?? []}
         nguonList={nguonData ?? []}
       />
+
+      <NhuCauImportDialog open={importOpen} onOpenChange={setImportOpen} />
 
       <ThongKeThoiGianPanel />
     </div>

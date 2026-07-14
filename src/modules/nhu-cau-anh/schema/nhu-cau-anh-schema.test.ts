@@ -163,6 +163,40 @@ describe('createNhuCauSchema', () => {
       expect(parsed.moTa).toBe('');
     });
   });
+
+  describe('thoiGianDat', () => {
+    it('tuỳ chọn, bỏ trống được chấp nhận', () => {
+      const input = {
+        ...validCommon,
+        loaiNhuCau: 'CO_DINH' as const,
+        thoiGianChup: '2026-07-04T10:00',
+      };
+      const parsed = createNhuCauSchema.parse(input);
+      expect(parsed.thoiGianDat).toBeUndefined();
+    });
+
+    it('hợp lệ khi cung cấp, coerce sang Date', () => {
+      const input = {
+        ...validCommon,
+        thoiGianDat: '2026-07-01T08:30',
+        loaiNhuCau: 'CO_DINH' as const,
+        thoiGianChup: '2026-07-04T10:00',
+      };
+      const parsed = createNhuCauSchema.parse(input);
+      expect(parsed.thoiGianDat).toBeInstanceOf(Date);
+    });
+
+    it('chuỗi rỗng bị từ chối', () => {
+      const input = {
+        ...validCommon,
+        thoiGianDat: '',
+        loaiNhuCau: 'CO_DINH' as const,
+        thoiGianChup: '2026-07-04T10:00',
+      };
+      const result = createNhuCauSchema.safeParse(input);
+      expect(result.success).toBe(false);
+    });
+  });
 });
 
 describe('transitionSchema', () => {
@@ -208,7 +242,7 @@ describe('nhuCauListQuerySchema', () => {
 
   it('chấp nhận filter trangThai hợp lệ', () => {
     const parsed = nhuCauListQuerySchema.parse({ trangThai: 'DA_DAT' });
-    expect(parsed.trangThai).toBe('DA_DAT');
+    expect(parsed.trangThai).toEqual(['DA_DAT']);
   });
 
   it('chấp nhận search', () => {

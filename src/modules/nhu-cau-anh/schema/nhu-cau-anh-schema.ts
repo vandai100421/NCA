@@ -12,6 +12,7 @@ const commonFields = {
   loaiAnhChup: loaiAnhChupEnum,
   toaDoX: z.coerce.number({ message: 'Tọa độ X phải là số' }),
   toaDoY: z.coerce.number({ message: 'Tọa độ Y phải là số' }),
+  thoiGianDat: z.coerce.date({ message: 'Thời gian đặt không hợp lệ' }).optional(),
   doPhanGiai: z
     .string()
     .trim()

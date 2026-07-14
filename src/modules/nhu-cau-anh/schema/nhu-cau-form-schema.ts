@@ -20,6 +20,7 @@ export const nhuCauFormSchema = z
     loaiAnhChup: loaiAnhChupEnum,
     toaDoX: numericString('Tọa độ X là bắt buộc'),
     toaDoY: numericString('Tọa độ Y là bắt buộc'),
+    thoiGianDat: z.string().optional().or(z.literal('')),
     thoiGianChup: z.string().optional().or(z.literal('')),
     thoiGianMongMuonTu: z.string().optional().or(z.literal('')),
     thoiGianMongMuonDen: z.string().optional().or(z.literal('')),
