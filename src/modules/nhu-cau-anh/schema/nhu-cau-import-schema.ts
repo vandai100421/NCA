@@ -1,6 +1,14 @@
 import { z } from 'zod';
-import { LOAI_ANH_CHUP_LABELS, LOAI_NHU_CAU_LABELS } from '@/modules/shared/constants';
-import type { LoaiAnhChup, LoaiNhuCau } from '@/infrastructure/prisma/generated/client';
+import {
+  LOAI_ANH_CHUP_LABELS,
+  LOAI_NHU_CAU_LABELS,
+  TRANG_THAI_NHU_CAU_LABELS,
+} from '@/modules/shared/constants';
+import type {
+  LoaiAnhChup,
+  LoaiNhuCau,
+  TrangThaiNhuCau,
+} from '@/infrastructure/prisma/generated/client';
 
 export interface ImportColumn {
   header: string;
@@ -307,3 +315,100 @@ export interface NhuCauImportResult {
   failed: number;
   results: NhuCauImportRowResult[];
 }
+
+const optionalTrangThaiField = z.preprocess(
+  (v) => {
+    if (v === null || v === undefined) return '';
+    if (typeof v === 'number' || typeof v === 'boolean') return String(v);
+    if (typeof v === 'string') return v;
+    return '';
+  },
+  z
+    .string()
+    .trim()
+    .transform((val, ctx): TrangThaiNhuCau | undefined => {
+      if (val.length === 0) return undefined;
+      const reverse = new Map<string, TrangThaiNhuCau>();
+      for (const [enumVal, label] of Object.entries(TRANG_THAI_NHU_CAU_LABELS) as [
+        TrangThaiNhuCau,
+        string,
+      ][]) {
+        reverse.set(label.toLowerCase(), enumVal);
+        reverse.set(enumVal.toLowerCase(), enumVal);
+      }
+      const found = reverse.get(val.toLowerCase().trim());
+      if (!found) {
+        ctx.addIssue({
+          code: 'custom',
+          message: `Trạng thái "${val}" không hợp lệ (dùng "Đã đặt", "Đã nhận" hoặc "Đã hủy")`,
+        });
+        return z.NEVER;
+      }
+      return found;
+    }),
+);
+
+export const nhuCauSyncRowSchema = nhuCauImportRowSchema
+  .extend({
+    trangThai: optionalTrangThaiField,
+    thoiGianTra: dateCell,
+  })
+  .superRefine((data, ctx) => {
+    if (data.trangThai === 'DA_NHAN' && !data.thoiGianTra) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Thời gian trả ảnh nên được điền khi trạng thái "Đã nhận"',
+        path: ['thoiGianTra'],
+      });
+    }
+  });
+
+export type NhuCauSyncRow = z.infer<typeof nhuCauSyncRowSchema>;
+
+export interface NhuCauSyncRowResult {
+  row: number;
+  action: 'created' | 'updated' | 'error';
+  status: 'success' | 'error';
+  message?: string;
+  id?: number;
+  oldTrangThai?: TrangThaiNhuCau | null;
+  newTrangThai?: TrangThaiNhuCau;
+  data: Record<string, unknown>;
+}
+
+export interface NhuCauMissingRecord {
+  id: number;
+  mucTieu: string;
+  nguon: string;
+  diaBan: string;
+  trangThai: TrangThaiNhuCau;
+  thoiGianDat: Date;
+  loaiNhuCau: LoaiNhuCau;
+}
+
+export interface NhuCauSyncResult {
+  total: number;
+  created: number;
+  updated: number;
+  failed: number;
+  missing: NhuCauMissingRecord[];
+  results: NhuCauSyncRowResult[];
+}
+
+export const IMPORT_SYNC_COLUMNS: ImportColumn[] = [
+  ...IMPORT_COLUMNS,
+  {
+    header: 'Trạng thái',
+    key: 'trangThai',
+    width: 14,
+    required: false,
+    note: '"Đã đặt", "Đã nhận" hoặc "Đã hủy". Rỗng = giữ nguyên (khi cập nhật) hoặc "Đã đặt" (khi tạo mới)',
+  },
+  {
+    header: 'Thời gian trả ảnh',
+    key: 'thoiGianTra',
+    width: 18,
+    required: false,
+    note: 'Nên điền khi trạng thái "Đã nhận"',
+  },
+];

@@ -4,6 +4,7 @@ import { handleRouteError } from '@/lib/route-handler';
 import {
   generateImportTemplate,
   importNhuCau,
+  syncNhuCau,
 } from '@/modules/nhu-cau-anh/api/nhu-cau-import-service';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
@@ -11,6 +12,11 @@ const ALLOWED_EXTENSIONS = ['.xlsx', '.csv'];
 
 export async function POST(request: NextRequest) {
   try {
+    const mode = request.nextUrl.searchParams.get('mode') ?? 'append';
+    if (mode !== 'append' && mode !== 'sync') {
+      throw new ValidationError(`Chế độ không hợp lệ: ${mode} (chấp nhận: append, sync)`);
+    }
+
     const formData = await request.formData();
     const file = formData.get('file');
 
@@ -31,7 +37,8 @@ export async function POST(request: NextRequest) {
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    const result = await importNhuCau(buffer, file.name);
+    const result =
+      mode === 'sync' ? await syncNhuCau(buffer, file.name) : await importNhuCau(buffer, file.name);
     return apiSuccess(result);
   } catch (e) {
     return handleRouteError(e);

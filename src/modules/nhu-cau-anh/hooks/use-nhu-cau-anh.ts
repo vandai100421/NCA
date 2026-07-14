@@ -13,7 +13,7 @@ import type {
   TransitionInput,
   UpdateNhuCauInput,
 } from '../schema/nhu-cau-anh-schema';
-import type { NhuCauImportResult } from '../schema/nhu-cau-import-schema';
+import type { NhuCauImportResult, NhuCauSyncResult } from '../schema/nhu-cau-import-schema';
 
 const KEY = ['nhu-cau-anh'] as const;
 const KEY_DETAIL = ['nhu-cau-anh', 'detail'] as const;
@@ -97,15 +97,16 @@ export function useDeleteNhuCau() {
 export function useImportNhuCau() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (file: File) => {
+    mutationFn: async ({ file, mode }: { file: File; mode: 'append' | 'sync' }) => {
       const formData = new FormData();
       formData.append('file', file);
-      const res = await fetch('/api/nhu-cau-anh/import', { method: 'POST', body: formData });
-      const body = (await res.json()) as ApiResponse<NhuCauImportResult>;
+      const url = mode === 'sync' ? '/api/nhu-cau-anh/import?mode=sync' : '/api/nhu-cau-anh/import';
+      const res = await fetch(url, { method: 'POST', body: formData });
+      const body = (await res.json()) as ApiResponse<NhuCauImportResult | NhuCauSyncResult>;
       if (!body.success) {
         throw new Error(body.error?.message ?? 'Lỗi không xác định');
       }
-      return body.data as NhuCauImportResult;
+      return body.data as NhuCauImportResult | NhuCauSyncResult;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: KEY });
