@@ -1,12 +1,37 @@
 'use client';
 
 import { useState } from 'react';
-import { Alert, App, Button, Modal, Radio, Table, Tag, Typography, Upload } from 'antd';
-import { DownloadOutlined, InboxOutlined } from '@ant-design/icons';
+import {
+  Alert,
+  App,
+  Button,
+  Form,
+  Input,
+  Modal,
+  Popconfirm,
+  Radio,
+  Select,
+  Table,
+  Tag,
+  Typography,
+  Upload,
+} from 'antd';
+import { DownloadOutlined, InboxOutlined, PlusOutlined } from '@ant-design/icons';
 import type { TableProps } from 'antd';
 import { useImportNhuCau } from '../hooks/use-nhu-cau-anh';
-import { LOAI_NHU_CAU_LABELS, TRANG_THAI_NHU_CAU_LABELS } from '@/modules/shared/constants';
+import { useCreateMucTieu } from '@/modules/muc-tieu/hooks/use-muc-tieu';
+import { useCreateNguon } from '@/modules/nguon/hooks/use-nguon';
+import type { CreateNguonInput } from '@/modules/nguon/schema/nguon-schema';
+import {
+  LOAI_NHU_CAU_LABELS,
+  NGUON_LOAI_LABELS,
+  NGUON_LOAI_OPTIONS,
+  TINH_TRANG_NGUON_LABELS,
+  TRANG_THAI_NHU_CAU_LABELS,
+} from '@/modules/shared/constants';
+import type { TinhTrangNguon } from '@/infrastructure/prisma/generated/client';
 import type {
+  MissingEntityInfo,
   NhuCauImportResult,
   NhuCauImportRowResult,
   NhuCauMissingRecord,
@@ -53,10 +78,79 @@ function isSyncResult(r: NhuCauImportResult | NhuCauSyncResult): r is NhuCauSync
 export function NhuCauImportDialog({ open, onOpenChange }: NhuCauImportDialogProps) {
   const { notification } = App.useApp();
   const importMut = useImportNhuCau();
+  const createMucTieuMut = useCreateMucTieu();
+  const createNguonMut = useCreateNguon();
   const [file, setFile] = useState<File | null>(null);
   const [mode, setMode] = useState<ImportMode>('append');
   const [result, setResult] = useState<NhuCauImportResult | NhuCauSyncResult | null>(null);
   const [missingOpen, setMissingOpen] = useState(false);
+  const [createdKeys, setCreatedKeys] = useState<Set<string>>(new Set());
+  const [creatingKey, setCreatingKey] = useState<string | null>(null);
+  const [quickCreate, setQuickCreate] = useState<MissingEntityInfo | null>(null);
+  const [nguonForm] = Form.useForm<{
+    nguon: (typeof NGUON_LOAI_OPTIONS)[number];
+    tenNguon: string;
+    thoiGianSuDung: string;
+    tinhTrang: TinhTrangNguon;
+    danhGia?: string;
+  }>();
+
+  const entityKey = (e: MissingEntityInfo) => `${e.kind}:${e.name.toLowerCase()}`;
+
+  const handleCreateMucTieu = async (name: string) => {
+    const key = `mucTieu:${name.toLowerCase()}`;
+    setCreatingKey(key);
+    try {
+      await createMucTieuMut.mutateAsync({ ten: name });
+      setCreatedKeys((prev) => {
+        const next = new Set(prev);
+        next.add(key);
+        return next;
+      });
+      notification.success({ message: `Đã tạo mục tiêu "${name}"` });
+    } catch (e) {
+      notification.error({
+        message: 'Tạo mục tiêu thất bại',
+        description: e instanceof Error ? e.message : undefined,
+      });
+    } finally {
+      setCreatingKey(null);
+    }
+  };
+
+  const handleCreateNguon = async (values: {
+    nguon: (typeof NGUON_LOAI_OPTIONS)[number];
+    tenNguon: string;
+    thoiGianSuDung: string;
+    tinhTrang: TinhTrangNguon;
+    danhGia?: string;
+  }) => {
+    const name = quickCreate?.name ?? values.tenNguon;
+    const input: CreateNguonInput = {
+      nguon: values.nguon,
+      tenNguon: values.tenNguon,
+      thoiGianSuDung: values.thoiGianSuDung,
+      tinhTrang: values.tinhTrang,
+      danhGia: values.danhGia && values.danhGia.length > 0 ? values.danhGia : undefined,
+    };
+    try {
+      await createNguonMut.mutateAsync(input);
+      const key = `nguon:${name.toLowerCase()}`;
+      setCreatedKeys((prev) => {
+        const next = new Set(prev);
+        next.add(key);
+        return next;
+      });
+      notification.success({ message: `Đã tạo nguồn "${values.tenNguon}"` });
+      setQuickCreate(null);
+      nguonForm.resetFields();
+    } catch (e) {
+      notification.error({
+        message: 'Tạo nguồn thất bại',
+        description: e instanceof Error ? e.message : undefined,
+      });
+    }
+  };
 
   const beforeUpload = (f: File) => {
     const name = f.name.toLowerCase();
@@ -108,11 +202,73 @@ export function NhuCauImportDialog({ open, onOpenChange }: NhuCauImportDialogPro
     setFile(null);
     setResult(null);
     setMissingOpen(false);
+    setCreatedKeys(new Set());
+    setCreatingKey(null);
+    setQuickCreate(null);
     onOpenChange(false);
   };
 
   const handleDownloadTemplate = () => {
     window.location.href = '/api/nhu-cau-anh/import';
+  };
+
+  const renderErrorDetail = (r: { message?: string; missingEntity?: MissingEntityInfo }) => {
+    const entity = r.missingEntity;
+    if (!entity) {
+      return <Text type="danger">{r.message}</Text>;
+    }
+    const key = entityKey(entity);
+    const created = createdKeys.has(key);
+    const label = entity.kind === 'mucTieu' ? 'mục tiêu' : 'nguồn';
+    if (created) {
+      return (
+        <div>
+          <Text type="danger">{r.message}</Text>
+          <div style={{ marginTop: 4 }}>
+            <Tag color="green">Đã tạo {label}</Tag>{' '}
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              Bấm &quot;{mode === 'sync' ? 'Đồng bộ' : 'Import'}&quot; lại để nhập dòng này
+            </Text>
+          </div>
+        </div>
+      );
+    }
+    return (
+      <div>
+        <Text type="danger">{r.message}</Text>
+        <div style={{ marginTop: 4 }}>
+          {entity.kind === 'mucTieu' ? (
+            <Popconfirm
+              title={`Tạo mục tiêu "${entity.name}" ngay?`}
+              okText="Tạo"
+              cancelText="Hủy"
+              onConfirm={() => handleCreateMucTieu(entity.name)}
+              disabled={creatingKey === key}
+            >
+              <Button
+                size="small"
+                type="primary"
+                ghost
+                icon={<PlusOutlined />}
+                loading={creatingKey === key}
+              >
+                Tạo mục tiêu
+              </Button>
+            </Popconfirm>
+          ) : (
+            <Button
+              size="small"
+              type="primary"
+              ghost
+              icon={<PlusOutlined />}
+              onClick={() => setQuickCreate(entity)}
+            >
+              Tạo nguồn
+            </Button>
+          )}
+        </div>
+      </div>
+    );
   };
 
   const appendColumns: TableProps<NhuCauImportRowResult>['columns'] = [
@@ -131,7 +287,7 @@ export function NhuCauImportDialog({ open, onOpenChange }: NhuCauImportDialogPro
         r.status === 'success' ? (
           <Text type="success">Đã tạo nhu cầu #{r.id}</Text>
         ) : (
-          <Text type="danger">{r.message}</Text>
+          renderErrorDetail(r)
         ),
     },
     {
@@ -164,7 +320,7 @@ export function NhuCauImportDialog({ open, onOpenChange }: NhuCauImportDialogPro
       title: 'Chi tiết',
       key: 'info',
       render: (_, r) => {
-        if (r.status === 'error') return <Text type="danger">{r.message}</Text>;
+        if (r.status === 'error') return renderErrorDetail(r);
         return <Text type="success">{r.message}</Text>;
       },
     },
@@ -288,6 +444,20 @@ export function NhuCauImportDialog({ open, onOpenChange }: NhuCauImportDialogPro
                 : `Đã thêm ${result.created} / Lỗi ${result.failed} / Tổng ${result.total} dòng`
             }
           />
+          {createdKeys.size > 0 && (
+            <Alert
+              type="info"
+              showIcon
+              style={{ marginBottom: 12 }}
+              message={`Đã tạo ${createdKeys.size} mục tiêu/nguồn mới`}
+              description={
+                <span>
+                  Bấm <b>{mode === 'sync' ? 'Đồng bộ' : 'Import'}</b> để nhập lại file — các dòng
+                  lỗi trước đây sẽ được xử lý lại.
+                </span>
+              }
+            />
+          )}
           {isSyncResult(result) ? (
             <Table<NhuCauSyncRowResult>
               columns={syncColumns}
@@ -346,6 +516,85 @@ export function NhuCauImportDialog({ open, onOpenChange }: NhuCauImportDialogPro
           pagination={{ pageSize: 10, showSizeChanger: false }}
           scroll={{ x: 700 }}
         />
+      </Modal>
+
+      <Modal
+        title="Tạo nguồn mới"
+        open={quickCreate?.kind === 'nguon'}
+        onCancel={() => setQuickCreate(null)}
+        onOk={() => nguonForm.submit()}
+        confirmLoading={createNguonMut.isPending}
+        okText="Tạo"
+        cancelText="Hủy"
+        destroyOnHidden
+      >
+        <Alert
+          type="info"
+          showIcon
+          style={{ marginBottom: 12 }}
+          message={
+            <span>
+              Nguồn <b>&quot;{quickCreate?.name}&quot;</b> chưa có trong hệ thống. Điền thông tin
+              còn thiếu để tạo ngay.
+            </span>
+          }
+        />
+        <Form
+          key={quickCreate?.name ?? 'none'}
+          form={nguonForm}
+          layout="vertical"
+          initialValues={{
+            nguon: 'vệ tinh' as (typeof NGUON_LOAI_OPTIONS)[number],
+            tenNguon: quickCreate?.name ?? '',
+            thoiGianSuDung: '',
+            tinhTrang: 'HOAT_DONG' as TinhTrangNguon,
+          }}
+          onFinish={(values) => {
+            void handleCreateNguon(values);
+          }}
+        >
+          <Form.Item
+            label="Loại nguồn"
+            name="nguon"
+            rules={[{ required: true, message: 'Vui lòng chọn loại nguồn' }]}
+          >
+            <Select
+              options={NGUON_LOAI_OPTIONS.map((opt) => ({
+                value: opt,
+                label: NGUON_LOAI_LABELS[opt],
+              }))}
+            />
+          </Form.Item>
+          <Form.Item
+            label="Tên nguồn"
+            name="tenNguon"
+            rules={[{ required: true, message: 'Tên nguồn là bắt buộc' }]}
+          >
+            <Input placeholder="VD: VT-Optical-Sat1" />
+          </Form.Item>
+          <Form.Item
+            label="Thời gian sử dụng"
+            name="thoiGianSuDung"
+            rules={[{ required: true, message: 'Thời gian sử dụng là bắt buộc' }]}
+          >
+            <Input placeholder="VD: 01/01/2025 - 31/12/2025" />
+          </Form.Item>
+          <Form.Item
+            label="Tình trạng"
+            name="tinhTrang"
+            rules={[{ required: true, message: 'Vui lòng chọn tình trạng' }]}
+          >
+            <Select
+              options={Object.entries(TINH_TRANG_NGUON_LABELS).map(([value, label]) => ({
+                value,
+                label,
+              }))}
+            />
+          </Form.Item>
+          <Form.Item label="Đánh giá" name="danhGia">
+            <Input.TextArea rows={2} placeholder="Ghi chú về chất lượng nguồn..." />
+          </Form.Item>
+        </Form>
       </Modal>
     </Modal>
   );

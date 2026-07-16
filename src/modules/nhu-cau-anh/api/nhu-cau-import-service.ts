@@ -2,12 +2,14 @@ import { Readable } from 'stream';
 import ExcelJS from 'exceljs';
 import { ZodError } from 'zod';
 import { prisma } from '@/lib/db';
+import { buildNhuCauKey } from '../lib/duplicate-check';
 import {
   IMPORT_COLUMNS,
   IMPORT_SYNC_COLUMNS,
   nhuCauImportRowSchema,
   nhuCauSyncRowSchema,
   type ImportColumn,
+  type MissingEntityInfo,
   type NhuCauImportResult,
   type NhuCauImportRowResult,
   type NhuCauMissingRecord,
@@ -109,14 +111,40 @@ export async function importNhuCau(buffer: Buffer, filename: string): Promise<Nh
     );
   }
 
-  const [mucTieuList, nguonList] = await Promise.all([
+  const [mucTieuList, nguonList, existingList] = await Promise.all([
     prisma.mucTieu.findMany({ select: { id: true, ten: true } }),
     prisma.nguon.findMany({ select: { id: true, tenNguon: true } }),
+    prisma.nhuCauAnh.findMany({
+      select: {
+        id: true,
+        mucTieuId: true,
+        nguonId: true,
+        diaBan: true,
+        loaiNhuCau: true,
+        thoiGianChup: true,
+        thoiGianMongMuonTu: true,
+      },
+    }),
   ]);
   const mucTieuMap = new Map<string, number>();
   for (const m of mucTieuList) mucTieuMap.set(m.ten.trim().toLowerCase(), m.id);
   const nguonMap = new Map<string, number>();
   for (const n of nguonList) nguonMap.set(n.tenNguon.trim().toLowerCase(), n.id);
+
+  const existingKeyMap = new Map<string, number>();
+  for (const rec of existingList) {
+    const key = buildNhuCauKey({
+      mucTieuId: rec.mucTieuId,
+      nguonId: rec.nguonId,
+      diaBan: rec.diaBan,
+      loaiNhuCau: rec.loaiNhuCau,
+      thoiGianChup: rec.thoiGianChup,
+      thoiGianMongMuonTu: rec.thoiGianMongMuonTu,
+    });
+    if (!existingKeyMap.has(key)) existingKeyMap.set(key, rec.id);
+  }
+
+  const batchKeyMap = new Map<string, number>();
 
   const results: NhuCauImportRowResult[] = [];
   let created = 0;
@@ -147,6 +175,7 @@ export async function importNhuCau(buffer: Buffer, filename: string): Promise<Nh
         status: 'error',
         message: `Mục tiêu "${row.mucTieu}" không tồn tại trong hệ thống`,
         data: values,
+        missingEntity: { kind: 'mucTieu', name: row.mucTieu } satisfies MissingEntityInfo,
       });
       continue;
     }
@@ -156,6 +185,38 @@ export async function importNhuCau(buffer: Buffer, filename: string): Promise<Nh
         row: rowNumber,
         status: 'error',
         message: `Nguồn "${row.nguon}" không tồn tại trong hệ thống`,
+        data: values,
+        missingEntity: { kind: 'nguon', name: row.nguon } satisfies MissingEntityInfo,
+      });
+      continue;
+    }
+
+    const dupKey = buildNhuCauKey({
+      mucTieuId,
+      nguonId,
+      diaBan: row.diaBan,
+      loaiNhuCau: row.loaiNhuCau,
+      thoiGianChup: row.thoiGianChup,
+      thoiGianMongMuonTu: row.thoiGianMongMuonTu,
+    });
+    const existingId = existingKeyMap.get(dupKey);
+    if (existingId) {
+      failed += 1;
+      results.push({
+        row: rowNumber,
+        status: 'error',
+        message: `Nhu cầu đã tồn tại (bản ghi #${existingId}). Trùng theo: mục tiêu, nguồn, địa bàn, loại nhu cầu và thời gian chụp/mong muốn từ.`,
+        data: values,
+      });
+      continue;
+    }
+    const dupRow = batchKeyMap.get(dupKey);
+    if (dupRow) {
+      failed += 1;
+      results.push({
+        row: rowNumber,
+        status: 'error',
+        message: `Trùng với dòng ${dupRow} trong file`,
         data: values,
       });
       continue;
@@ -197,6 +258,7 @@ export async function importNhuCau(buffer: Buffer, filename: string): Promise<Nh
         return createdRow.id;
       });
       created += 1;
+      batchKeyMap.set(dupKey, rowNumber);
       results.push({ row: rowNumber, status: 'success', id, data: values });
     } catch (e) {
       failed += 1;
@@ -220,11 +282,14 @@ function buildSyncKey(
   thoiGianChup: Date | undefined,
   thoiGianMongMuonTu: Date | undefined,
 ): string {
-  const timeKey =
-    loaiNhuCau === 'CO_DINH'
-      ? (thoiGianChup?.toISOString() ?? '')
-      : (thoiGianMongMuonTu?.toISOString() ?? '');
-  return `${mucTieuId}|${nguonId}|${diaBan.trim().toLowerCase()}|${loaiNhuCau}|${timeKey}`;
+  return buildNhuCauKey({
+    mucTieuId,
+    nguonId,
+    diaBan,
+    loaiNhuCau,
+    thoiGianChup,
+    thoiGianMongMuonTu,
+  });
 }
 
 export async function syncNhuCau(buffer: Buffer, filename: string): Promise<NhuCauSyncResult> {
@@ -310,6 +375,7 @@ export async function syncNhuCau(buffer: Buffer, filename: string): Promise<NhuC
         status: 'error',
         message: `Mục tiêu "${row.mucTieu}" không tồn tại trong hệ thống`,
         data: values,
+        missingEntity: { kind: 'mucTieu', name: row.mucTieu } satisfies MissingEntityInfo,
       });
       continue;
     }
@@ -321,6 +387,7 @@ export async function syncNhuCau(buffer: Buffer, filename: string): Promise<NhuC
         status: 'error',
         message: `Nguồn "${row.nguon}" không tồn tại trong hệ thống`,
         data: values,
+        missingEntity: { kind: 'nguon', name: row.nguon } satisfies MissingEntityInfo,
       });
       continue;
     }

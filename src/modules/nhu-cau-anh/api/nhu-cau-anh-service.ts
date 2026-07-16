@@ -2,6 +2,7 @@ import { parseFilterDate } from '@/lib/date';
 import { prisma } from '@/lib/db';
 import { ConflictError, NotFoundError, StateTransitionError, ValidationError } from '@/lib/errors';
 import type { NhuCauAnh, TrangThaiNhuCau } from '@/infrastructure/prisma/generated/client';
+import { buildNhuCauKey } from '../lib/duplicate-check';
 import { canTransition, isDeletable } from '../lib/state-machine';
 import type {
   CreateNhuCauInput,
@@ -113,6 +114,37 @@ export async function getNhuCauById(id: number): Promise<NhuCauAnhDetail> {
   return nhuCau;
 }
 
+async function findDuplicateNhuCau(input: CreateNhuCauInput): Promise<{ id: number } | null> {
+  const key = buildNhuCauKey({
+    mucTieuId: input.mucTieuId,
+    nguonId: input.nguonId,
+    diaBan: input.diaBan,
+    loaiNhuCau: input.loaiNhuCau,
+    thoiGianChup: 'thoiGianChup' in input ? input.thoiGianChup : undefined,
+    thoiGianMongMuonTu: 'thoiGianMongMuonTu' in input ? input.thoiGianMongMuonTu : undefined,
+  });
+  const candidates = await prisma.nhuCauAnh.findMany({
+    where: {
+      mucTieuId: input.mucTieuId,
+      nguonId: input.nguonId,
+      loaiNhuCau: input.loaiNhuCau,
+    },
+    select: { id: true, diaBan: true, thoiGianChup: true, thoiGianMongMuonTu: true },
+  });
+  for (const c of candidates) {
+    const cKey = buildNhuCauKey({
+      mucTieuId: input.mucTieuId,
+      nguonId: input.nguonId,
+      diaBan: c.diaBan,
+      loaiNhuCau: input.loaiNhuCau,
+      thoiGianChup: c.thoiGianChup,
+      thoiGianMongMuonTu: c.thoiGianMongMuonTu,
+    });
+    if (cKey === key) return { id: c.id };
+  }
+  return null;
+}
+
 export async function createNhuCau(input: CreateNhuCauInput): Promise<NhuCauAnhDetail> {
   const mucTieu = await prisma.mucTieu.findUnique({ where: { id: input.mucTieuId } });
   if (!mucTieu) {
@@ -121,6 +153,13 @@ export async function createNhuCau(input: CreateNhuCauInput): Promise<NhuCauAnhD
   const nguon = await prisma.nguon.findUnique({ where: { id: input.nguonId } });
   if (!nguon) {
     throw new ValidationError('Nguồn không tồn tại', 'nguonId');
+  }
+
+  const duplicate = await findDuplicateNhuCau(input);
+  if (duplicate) {
+    throw new ConflictError(
+      `Nhu cầu ảnh đã tồn tại (bản ghi #${duplicate.id}). Trùng theo: mục tiêu, nguồn, địa bàn, loại nhu cầu và thời gian chụp/mong muốn từ.`,
+    );
   }
 
   const { moTa, ...rest } = input;

@@ -301,12 +301,18 @@ export const nhuCauImportRowSchema = z
 
 export type NhuCauImportRow = z.infer<typeof nhuCauImportRowSchema>;
 
+export interface MissingEntityInfo {
+  kind: 'mucTieu' | 'nguon';
+  name: string;
+}
+
 export interface NhuCauImportRowResult {
   row: number;
   status: 'success' | 'error';
   message?: string;
   id?: number;
   data: Record<string, unknown>;
+  missingEntity?: MissingEntityInfo;
 }
 
 export interface NhuCauImportResult {
@@ -374,6 +380,7 @@ export interface NhuCauSyncRowResult {
   oldTrangThai?: TrangThaiNhuCau | null;
   newTrangThai?: TrangThaiNhuCau;
   data: Record<string, unknown>;
+  missingEntity?: MissingEntityInfo;
 }
 
 export interface NhuCauMissingRecord {
