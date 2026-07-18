@@ -17,7 +17,7 @@
 
 # production
 /build
-
+/NCA-offline
 # misc
 .DS_Store
 *.pem

@@ -81,9 +81,12 @@ Copy-Item prod.db NCA-offline\prod.db
 Set-Content -Path NCA-offline\.env -Value 'DATABASE_URL="file:./prod.db"'
 
 # Tạo script start.bat
+# Quan trọng: `set HOSTNAME=` để xóa biến môi trường HOSTNAME của Windows.
+# Nếu không xóa, server.js sẽ bind vào IPv6 của máy thay vì 0.0.0.0 → máy khác trong LAN (IPv4) không truy cập được.
 Set-Content -Path NCA-offline\start.bat -Value @'
 @echo off
 cd /d %~dp0
+set HOSTNAME=
 node server.js
 '@
 ```
@@ -233,6 +236,17 @@ Error: The module was compiled against a different Node.js version
 3. Mở firewall: `New-NetFirewallRule -DisplayName "NCA Web (port 3000)" -Direction Inbound -Protocol TCP -LocalPort 3000 -Action Allow -Profile Domain,Private`
 4. Test trên máy đích trước: `http://localhost:3000`
 
+### Server chỉ bind IPv6, máy LAN IPv4 không vào được
+
+Triệu chứng: `netstat -an | findstr :3000` hiện `TCP [IPv6 dài]:3000` thay vì `0.0.0.0:3000`. Nguyên nhân: Windows tự set biến `HOSTNAME`, và `server.js` (line `process.env.HOSTNAME || '0.0.0.0'`) lấy giá trị đó → bind vào interface IPv6 cụ thể.
+
+**Fix**: đảm bảo `start.bat` có dòng `set HOSTNAME=` (rỗng) trước `node server.js` để xóa biến, server sẽ fallback về `0.0.0.0` (tất cả interface IPv4). Kiểm tra lại:
+
+```powershell
+netstat -an | findstr :3000
+# Phải thấy:  TCP    0.0.0.0:3000    0.0.0.0:0    LISTENING
+```
+
 ### Tắt web
 
 Nhấn **Ctrl + C** trong cửa sổ cmd đang chạy `start.bat`, hoặc đóng cửa sổ đó.
@@ -273,7 +287,7 @@ Copy-Item -Recurse .next\static NCA-offline\.next\static
 Copy-Item -Recurse public NCA-offline\public -ErrorAction SilentlyContinue
 Copy-Item prod.db NCA-offline\prod.db
 Set-Content -Path NCA-offline\.env -Value 'DATABASE_URL="file:./prod.db"'
-Set-Content -Path NCA-offline\start.bat -Value "@echo off`ncd /d %~dp0`nnode server.js"
+Set-Content -Path NCA-offline\start.bat -Value "@echo off`ncd /d %~dp0`nset HOSTNAME=`nnode server.js"
 # Copy ra USB:
 Copy-Item -Recurse NCA-offline E:\NCA-offline
 
